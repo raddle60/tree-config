@@ -46,4 +46,19 @@ public interface TreeConfigReader {
 	 * @return 不存在返回空List
 	 */
 	public List<TreeConfigNode> getChildren(TreeConfigPath path);
+	
+	/**
+	 * 判断节点是否存在
+	 * @param path 节点路径
+	 * @return true存在，false不存在
+	 */
+	public boolean isNodeExist(TreeConfigPath path);
+	
+	/**
+	 * 判断属性是否存在
+	 * @param path 节点路径
+	 * @param attributeNames 属性名称
+	 * @return true全都存在，false只要有一个不存在
+	 */
+	public boolean isAttributesExist(TreeConfigPath path, String... attributeNames);
 }
