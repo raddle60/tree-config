@@ -18,11 +18,6 @@ public interface TreeConfigNode extends Serializable {
 	public TreeConfigPath getNodePath();
 	
 	/**
-	 * 设置节点路径
-	 */
-	public void setNodePath(TreeConfigPath nodePath);
-	
-	/**
 	 * 获得节点的值
 	 * @return
 	 */
