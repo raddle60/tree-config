@@ -31,7 +31,7 @@ public interface TreeConfigNode extends Serializable {
 	/**
 	 * 设置节点的值
 	 */
-	public void getValue(Serializable value);
+	public void setValue(Serializable value);
 	
 	/**
 	 * 获得属性
