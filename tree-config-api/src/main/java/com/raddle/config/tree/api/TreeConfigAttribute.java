@@ -22,4 +22,9 @@ public interface TreeConfigAttribute extends Serializable {
 	 */
 	public Serializable getValue();
 	
+	/**
+	 * 设置属性值
+	 */
+	public void setValue(Serializable value);
+	
 }
