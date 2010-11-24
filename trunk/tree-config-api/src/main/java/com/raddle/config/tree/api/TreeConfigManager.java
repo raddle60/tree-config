@@ -3,6 +3,7 @@
  */
 package com.raddle.config.tree.api;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -22,7 +23,7 @@ public interface TreeConfigManager extends TreeConfigReader {
 	 * @param path 节点路径
 	 * @param value 节点的值
 	 */
-	public void saveNodeValue(TreeConfigPath path, Object value);
+	public void saveNodeValue(TreeConfigPath path, Serializable value);
 	
 	/**
 	 * 保存节点的属性，不存在就创建（包括节点），已经存在就更新
@@ -37,7 +38,7 @@ public interface TreeConfigManager extends TreeConfigReader {
 	 * @param attributeName 属性名称
 	 * @param value 属性值
 	 */
-	public void saveAttributeValue(TreeConfigPath path, String attributeName, Object value);
+	public void saveAttributeValue(TreeConfigPath path, String attributeName, Serializable value);
 	
 	/**
 	 * 删除属性

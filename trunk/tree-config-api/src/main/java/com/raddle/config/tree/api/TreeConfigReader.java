@@ -3,6 +3,7 @@
  */
 package com.raddle.config.tree.api;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -22,7 +23,7 @@ public interface TreeConfigReader {
 	 * @param path 节点路径
 	 * @return 不存在返回null
 	 */
-	public Object getNodeValue(TreeConfigPath path);
+	public Serializable getNodeValue(TreeConfigPath path);
 
 	/**
 	 * 获得节点的属性
@@ -38,7 +39,7 @@ public interface TreeConfigReader {
 	 * @param attributeName 属性名称
 	 * @return 不存在返回null
 	 */
-	public Object getAttributeValue(TreeConfigPath path, String attributeName);
+	public Serializable getAttributeValue(TreeConfigPath path, String attributeName);
 
 	/**
 	 * 获得子节点
