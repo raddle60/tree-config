@@ -6,7 +6,7 @@
   <groupId>com.raddle.config</groupId>
   <artifactId>tree-config-parent</artifactId>
   <packaging>pom</packaging>
-  <version>1.0.0-SANPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
   <name>${project.artifactId} v${project.version}</name>
 
   <modules>

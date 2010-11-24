@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.raddle.config</groupId>
     <artifactId>tree-config-parent</artifactId>
-    <version>1.0.0-SANPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>tree-config-server</artifactId>
   <version>1.0.0-SNAPSHOT</version>
