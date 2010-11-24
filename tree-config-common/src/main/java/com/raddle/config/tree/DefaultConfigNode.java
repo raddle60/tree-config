@@ -81,6 +81,10 @@ public class DefaultConfigNode implements TreeConfigNode {
 		children.put(nodeName, child);
 	}
 	
+	public void removeChild(String nodeName){
+		children.remove(nodeName);
+	}
+	
 	public Map<String, DefaultConfigNode> getChildren() {
 		return children;
 	}
