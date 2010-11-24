@@ -3,6 +3,8 @@
  */
 package com.raddle.config.tree;
 
+import java.util.Arrays;
+
 import com.raddle.config.tree.api.TreeConfigPath;
 
 /**
@@ -38,6 +40,11 @@ public class DefaultConfigPath implements TreeConfigPath {
 	public void setSplitPath(String splitPath) {
 		this.splitPath = splitPath;
 		this.path = splitPath.split("/");
+	}
+
+	@Override
+	public String[] getSubPath(int start, int end) {
+		return Arrays.asList(path).subList(start, end).toArray(new String[0]);
 	}
 
 }
