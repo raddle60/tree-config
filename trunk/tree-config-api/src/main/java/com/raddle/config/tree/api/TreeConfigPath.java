@@ -12,4 +12,9 @@ public interface TreeConfigPath extends Serializable {
 	 * @return
 	 */
 	public String[] getPath();
+	
+	/**
+	 * 设置配置路径
+	 */
+	public void setPath(String[] path);
 }
