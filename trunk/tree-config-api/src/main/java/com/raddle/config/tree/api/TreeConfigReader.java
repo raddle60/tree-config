@@ -43,7 +43,7 @@ public interface TreeConfigReader {
 
 	/**
 	 * 获得子节点
-	 * @param path 节点路径
+	 * @param path 节点路径,传null获得第一级的节点
 	 * @return 不存在返回空List
 	 */
 	public List<TreeConfigNode> getChildren(TreeConfigPath path);
