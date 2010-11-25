@@ -28,6 +28,8 @@ public class DefaultConfigNode implements TreeConfigNode {
 	private Map<String, DefaultConfigNode> children = new LinkedHashMap<String, DefaultConfigNode>();
 	
 	private TreeConfigPath nodePath;
+	
+	private DefaultConfigNode parent;
 
 	@Override
 	public TreeConfigAttribute getAttribute(String attributeName) {
@@ -78,6 +80,7 @@ public class DefaultConfigNode implements TreeConfigNode {
 	}
 	
 	public void setChild(String nodeName, DefaultConfigNode child){
+		child.setParent(this);
 		children.put(nodeName, child);
 	}
 	
@@ -101,6 +104,14 @@ public class DefaultConfigNode implements TreeConfigNode {
 
 	public void setNodePath(TreeConfigPath nodePath) {
 		this.nodePath = nodePath;
+	}
+
+	public DefaultConfigNode getParent() {
+		return parent;
+	}
+
+	public void setParent(DefaultConfigNode parent) {
+		this.parent = parent;
 	}
 
 }

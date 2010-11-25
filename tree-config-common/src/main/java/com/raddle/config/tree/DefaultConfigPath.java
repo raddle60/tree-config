@@ -47,4 +47,19 @@ public class DefaultConfigPath implements TreeConfigPath {
 		return Arrays.asList(path).subList(start, end).toArray(new String[0]);
 	}
 
+	@Override
+	public String get(int i) {
+		return path[i];
+	}
+
+	@Override
+	public String getFirst() {
+		return path[0];
+	}
+
+	@Override
+	public String getLast() {
+		return path[path.length - 1];
+	}
+
 }

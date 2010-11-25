@@ -39,7 +39,7 @@
   <dependencies>
     <dependency>
 	    <groupId>com.raddle.config</groupId>
-	    <artifactId>tree-config-api</artifactId>
+	    <artifactId>tree-config-common</artifactId>
 	    <version>1.0.0-SNAPSHOT</version>
     </dependency>
     <dependency>
