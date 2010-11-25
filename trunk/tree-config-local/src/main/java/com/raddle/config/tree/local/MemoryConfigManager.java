@@ -102,7 +102,7 @@ public class MemoryConfigManager implements TreeConfigManager {
 
 	@Override
 	public TreeConfigAttribute getAttribute(TreeConfigPath path, String attributeName) {
-		TreeConfigNode node = getNode(path);
+		TreeConfigNode node = getNodeByPath(path, false);
 		if(node != null){
 			return node.getAttribute(attributeName);
 		}
@@ -120,21 +120,28 @@ public class MemoryConfigManager implements TreeConfigManager {
 
 	@Override
 	public List<TreeConfigNode> getChildren(TreeConfigPath path) {
-		DefaultConfigNode node = (DefaultConfigNode) getNode(path);
+		DefaultConfigNode node = (DefaultConfigNode) getNodeByPath(path, false);
+		ArrayList<TreeConfigNode> list = new ArrayList<TreeConfigNode>();
 		if(node != null){
-			return new ArrayList<TreeConfigNode>(node.getChildren().values());
+			for (TreeConfigNode n : node.getChildren().values()) {
+				list.add(((DefaultConfigNode)n).toSelfOnly());
+			}
 		}
-		return new ArrayList<TreeConfigNode>();
+		return list;
 	}
 
 	@Override
 	public TreeConfigNode getNode(TreeConfigPath path) {
-		return getNodeByPath(path, false);
+		DefaultConfigNode node = (DefaultConfigNode) getNodeByPath(path, false);
+		if(node != null){
+			return node.toSelfOnly();
+		}
+		return null;
 	}
 
 	@Override
 	public Serializable getNodeValue(TreeConfigPath path) {
-		TreeConfigNode node = getNode(path);
+		TreeConfigNode node = getNodeByPath(path, false);
 		if(node != null){
 			return node.getValue();
 		}
