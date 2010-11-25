@@ -30,6 +30,20 @@ public class DefaultConfigNode implements TreeConfigNode {
 	private TreeConfigPath nodePath;
 	
 	private DefaultConfigNode parent;
+	
+	/**
+	 * 只保留value和属性，去掉父节点和子节点的关联信息
+	 * @return
+	 */
+	public TreeConfigNode toSelfOnly() {
+		DefaultConfigNode node = new DefaultConfigNode();
+		node.setNodePath(nodePath);
+		node.setValue(this.getValue());
+		for (TreeConfigAttribute attribute : attrMap.values()) {
+			node.setAttributeValue(attribute.getName(), attribute.getValue());
+		}
+		return node;
+	}
 
 	@Override
 	public TreeConfigAttribute getAttribute(String attributeName) {
