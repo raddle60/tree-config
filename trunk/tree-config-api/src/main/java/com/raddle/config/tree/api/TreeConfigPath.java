@@ -21,4 +21,23 @@ public interface TreeConfigPath extends Serializable {
 	 */
 	public String[] getSubPath(int start, int end);
 	
+	/**
+	 * 获得第i段路径
+	 * @param i
+	 * @return
+	 */
+	public String get(int i);
+	
+	/**
+	 * 获得第一段路径
+	 * @return
+	 */
+	public String getFirst();
+	
+	/**
+	 * 获得最后一段路径
+	 * @return
+	 */
+	public String getLast();
+	
 }
