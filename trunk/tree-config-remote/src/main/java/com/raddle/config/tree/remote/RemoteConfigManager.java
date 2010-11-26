@@ -12,10 +12,6 @@ import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.api.TreeConfigPath;
-import com.raddle.nio.mina.cmd.SessionCommandSender;
-import com.raddle.nio.mina.cmd.api.CommandCallback;
-import com.raddle.nio.mina.cmd.api.CommandSender;
-import com.raddle.nio.mina.cmd.invoke.InvokeCommand;
 
 /**
  * @author xurong
@@ -23,59 +19,14 @@ import com.raddle.nio.mina.cmd.invoke.InvokeCommand;
  */
 public class RemoteConfigManager implements TreeConfigManager {
 	private int timeoutSeconds = 3;
-	private CommandSender commandSender;
+	private SyncCommandSender commandSender;
 
 	public RemoteConfigManager(IoSession session) {
-		this.commandSender = new SessionCommandSender(session);
+		this.commandSender = new SyncCommandSender(session);
 	}
 
 	private Object sendCommand(String method, Object[] args) {
-		final ObjectHolder ret = new ObjectHolder();
-		final ObjectHolder exception = new ObjectHolder();
-		InvokeCommand command = new InvokeCommand();
-		command.setTargetId("treeConfigManager");
-		command.setMethod(method);
-		command.setArgs(args);
-		commandSender.sendCommand(command, timeoutSeconds, new CommandCallback<InvokeCommand, Object>() {
-
-			@Override
-			public void commandResponse(InvokeCommand command, Object response) {
-				ret.setValue(response);
-				synchronized (ret) {
-					ret.notify();
-				}
-			}
-
-			@Override
-			public void responseException(InvokeCommand command, String type, String message) {
-				exception.setValue("方法调用返回异常[" + type + "]:" + message);
-				synchronized (ret) {
-					ret.notify();
-				}
-			}
-
-			@Override
-			public void responseTimeout(InvokeCommand command) {
-				exception.setValue("方法调用返回超时,超时时间" + timeoutSeconds + "秒");
-				synchronized (ret) {
-					ret.notify();
-				}
-			}
-
-		});
-		// 等待结果返回
-		synchronized (ret) {
-			try {
-				ret.wait(timeoutSeconds * 1000 + 500);
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e.getMessage(), e);
-			}
-		}
-		// 调用异常
-		if (exception.getValue() != null) {
-			throw new RuntimeException(exception.getValue() + "");
-		}
-		return ret.getValue();
+		return commandSender.sendCommand("treeConfigManager", method, args, timeoutSeconds);
 	}
 
 	@Override
@@ -160,17 +111,5 @@ public class RemoteConfigManager implements TreeConfigManager {
 
 	public void setTimeoutSeconds(int timeoutSeconds) {
 		this.timeoutSeconds = timeoutSeconds;
-	}
-
-	class ObjectHolder {
-		private Object value;
-
-		public Object getValue() {
-			return value;
-		}
-
-		public void setValue(Object value) {
-			this.value = value;
-		}
 	}
 }
