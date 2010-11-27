@@ -4,7 +4,10 @@
 package com.raddle.config.tree.remote;
 
 import org.apache.mina.core.session.IoSession;
+import org.omg.CORBA.BooleanHolder;
 
+import com.raddle.config.tree.remote.exception.RemoteExecuteException;
+import com.raddle.config.tree.remote.exception.ResponseTimeoutException;
 import com.raddle.nio.mina.cmd.SessionCommandSender;
 import com.raddle.nio.mina.cmd.api.CommandCallback;
 import com.raddle.nio.mina.cmd.api.CommandSender;
@@ -21,9 +24,10 @@ public class SyncCommandSender {
 		this.commandSender = new SessionCommandSender(session);
 	}
 
-	public Object sendCommand(String targetId, String method, Object[] args, final int timeoutSeconds) {
+	public Object sendCommand(String targetId, String method, Object[] args, final int timeoutSeconds) throws RemoteExecuteException, ResponseTimeoutException{
 		final ObjectHolder ret = new ObjectHolder();
 		final ObjectHolder exception = new ObjectHolder();
+		final BooleanHolder isTimeout = new BooleanHolder(false);
 		InvokeCommand command = new InvokeCommand();
 		command.setTargetId(targetId);
 		command.setMethod(method);
@@ -48,7 +52,8 @@ public class SyncCommandSender {
 
 			@Override
 			public void responseTimeout(InvokeCommand command) {
-				exception.setValue("方法调用返回超时,超时时间" + timeoutSeconds + "秒");
+				exception.setValue("方法调用返回超时,设定的超时时间" + timeoutSeconds + "秒");
+				isTimeout.value = true;
 				synchronized (ret) {
 					ret.notify();
 				}
@@ -60,12 +65,16 @@ public class SyncCommandSender {
 			try {
 				ret.wait(timeoutSeconds * 1000 + 500);
 			} catch (InterruptedException e) {
-				throw new RuntimeException(e.getMessage(), e);
+				throw new ResponseTimeoutException(e.getMessage(), e);
 			}
 		}
 		// 调用异常
 		if (exception.getValue() != null) {
-			throw new RuntimeException(exception.getValue() + "");
+			if(isTimeout.value){
+				throw new ResponseTimeoutException(exception.getValue() + "");
+			} else {
+				throw new RemoteExecuteException(exception.getValue() + "");
+			}
 		}
 		return ret.getValue();
 	}
