@@ -53,7 +53,7 @@ public class TreeConfigServer {
 	private int readerIdleSeconds = 60 * 10;
 	private IoAcceptor acceptor = new NioSocketAcceptor();
 	private TreeConfigManager manager = new MemoryConfigManager();
-	private int port;
+	private int port = 9877;
 	private ExecutorService taskExecutor = null;
 	private ScheduledExecutorService scheduleService = null;
 	private Deque<NotifyClientTask> notifyFailedTasks = new LinkedList<NotifyClientTask>();
@@ -70,6 +70,7 @@ public class TreeConfigServer {
 	}
 
 	public void start() {
+		long startAt = System.currentTimeMillis();
 		logger.info("tree configuartion server starting ...");
 		// 调用远程方法，等待响应返回
 		logger.info("setting invoke timeout {} seconds ", invokeTimeoutSeconds);
@@ -183,7 +184,9 @@ public class TreeConfigServer {
 		try {
 			acceptor.bind(new InetSocketAddress(port));
 			logger.info("tree configuartion server listening on {}", port);
+			logger.info("starting task executor");
 			taskExecutor = new ThreadPoolExecutor(0, 10, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+			logger.info("starting failed task process executor");
 			scheduleService = Executors.newScheduledThreadPool(1);
 			scheduleService.scheduleWithFixedDelay(new Runnable() {
 				@Override
@@ -205,6 +208,7 @@ public class TreeConfigServer {
 					}
 				}
 			}, 1, 1, TimeUnit.SECONDS);
+			logger.info("tree configuartion server starting completed in {}ms " , System.currentTimeMillis() - startAt);
 		} catch (IOException e) {
 			logger.error("tree configuartion start failed .", e);
 		}
@@ -255,16 +259,21 @@ public class TreeConfigServer {
 	}
 
 	public void shutdown() {
+		long startAt = System.currentTimeMillis();
 		if (taskExecutor != null) {
+			logger.info("shuting down task executor");
 			taskExecutor.shutdown();
 		}
 		if (scheduleService != null) {
+			logger.info("shuting down failed task process executor");
 			scheduleService.shutdown();
 		}
+		logger.info("unbinding listening port");
 		acceptor.unbind();
 		acceptor.dispose();
 		clientMap.clear();
 		notifyFailedTasks.clear();
+		logger.info("shutdown server completed in {}ms ", System.currentTimeMillis() - startAt);
 	}
 
 	public int getPort() {
