@@ -7,13 +7,15 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +46,7 @@ import com.raddle.nio.mina.hessian.HessianEncoder;
  */
 public class TreeConfigServer {
 	private static final Logger logger = LoggerFactory.getLogger(TreeConfigServer.class);
+	private static final String NOTIFY_CLIENT_TARGET_ID = "treeConfigManager";
 	private static final String ATTR_KEY_CLIENT_ID = "client_id";
 	private static final Set<String> updateMethodSet = new HashSet<String>();
 	private int invokeTimeoutSeconds = 5;
@@ -51,8 +54,9 @@ public class TreeConfigServer {
 	private IoAcceptor acceptor = new NioSocketAcceptor();
 	private TreeConfigManager manager = new MemoryConfigManager();
 	private int port;
-	private ExecutorService executorService = null;
-	private List<NotifyClientTask> notifyFailedTasks = new LinkedList<NotifyClientTask>();
+	private ExecutorService taskExecutor = null;
+	private ScheduledExecutorService scheduleService = null;
+	private Deque<NotifyClientTask> notifyFailedTasks = new LinkedList<NotifyClientTask>();
 	private Map<String, IoSession> clientMap = new HashMap<String, IoSession>();
 	static {
 		updateMethodSet.add("saveNode");
@@ -68,9 +72,9 @@ public class TreeConfigServer {
 	public void start() {
 		logger.info("tree configuartion server starting ...");
 		// 调用远程方法，等待响应返回
-		logger.info("setting invoke timeout {} seconds " , invokeTimeoutSeconds);
+		logger.info("setting invoke timeout {} seconds ", invokeTimeoutSeconds);
 		// 读空闲10分钟
-		logger.info("setting reader idle time {} seconds " , readerIdleSeconds);
+		logger.info("setting reader idle time {} seconds ", readerIdleSeconds);
 		acceptor.getSessionConfig().setReaderIdleTime(readerIdleSeconds);
 		// hessain序列化
 		acceptor.getFilterChain().addLast("codec", new ProtocolCodecFilter(new HessianEncoder(), new HessianDecoder()));
@@ -92,18 +96,19 @@ public class TreeConfigServer {
 							for (final String clientId : clientMap.keySet()) {
 								// 发送者不用通知
 								if (!clientId.equals(CommandContext.getIoSession().getAttribute(ATTR_KEY_CLIENT_ID))) {
-									executorService.execute(new Runnable() {
+									taskExecutor.execute(new Runnable() {
 										@Override
 										public void run() {
 											SyncCommandSender sender = new SyncCommandSender(clientMap.get(clientId));
 											try {
-												sender.sendCommand("treeConfigManager", methodInvoke.getMethod(), methodInvoke.getArgs(),
+												sender.sendCommand(NOTIFY_CLIENT_TARGET_ID, methodInvoke.getMethod(), methodInvoke.getArgs(),
 														invokeTimeoutSeconds);
 											} catch (RemoteExecuteException e) {
 												// 远端的异常，忽略
 											} catch (ResponseTimeoutException e) {
-												logger.warn("wating timeout , targetId:{} ,method:{} , remote address:{}", new Object[] {
-														"treeConfigManager", methodInvoke.getMethod(), clientMap.get(clientId).getRemoteAddress() });
+												logger.warn("wating timeout , clientId {}, targetId:{} ,method:{} , remote address:{}", new Object[] {
+														clientId, NOTIFY_CLIENT_TARGET_ID, methodInvoke.getMethod(),
+														clientMap.get(clientId).getRemoteAddress() });
 												// 等待超时 , 重新发送
 												NotifyClientTask notifyTask = new NotifyClientTask(clientId, methodInvoke.getMethod(), methodInvoke
 														.getArgs());
@@ -146,13 +151,15 @@ public class TreeConfigServer {
 
 			@Override
 			public void exceptionCaught(IoSession session, Throwable cause) throws Exception {
-				logger.error("Session exception , remote address [" + session.getRemoteAddress() + "] .", cause);
+				logger.error("Session exception , remote address [" + session.getRemoteAddress() + "] , clientId ["
+						+ session.getAttribute(ATTR_KEY_CLIENT_ID) + "] .", cause);
 				session.close(true);
 			}
 
 			@Override
 			public void sessionClosed(IoSession session) throws Exception {
-				logger.debug("Session closed , remote address [{}] .", session.getRemoteAddress());
+				logger.debug("Session closed , remote address [{}], clientId [{}] .", session.getRemoteAddress(), session
+						.getAttribute(ATTR_KEY_CLIENT_ID));
 				// 防止在循环发通知的过程中，并发remove
 				synchronized (TreeConfigServer.this) {
 					clientMap.remove(session.getAttribute(ATTR_KEY_CLIENT_ID));
@@ -161,7 +168,8 @@ public class TreeConfigServer {
 
 			@Override
 			public void sessionIdle(IoSession session, IdleStatus status) throws Exception {
-				logger.warn("Session idle timeout , idle status [{}] , remote address [{}] .", status, session.getRemoteAddress());
+				logger.warn("Session idle timeout , idle status [{}] , remote address [{}], clientId [{}] .", new Object[] { status,
+						session.getRemoteAddress(), session.getAttribute(ATTR_KEY_CLIENT_ID) });
 				session.close(true);
 			}
 
@@ -171,13 +179,34 @@ public class TreeConfigServer {
 			}
 
 		});
-		logger.info("binding on port {}" , port);
+		logger.info("binding on port {}", port);
 		try {
 			acceptor.bind(new InetSocketAddress(port));
-			logger.info("tree configuartion server listening on {}" , port);
-			executorService = new ThreadPoolExecutor(0, 10, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+			logger.info("tree configuartion server listening on {}", port);
+			taskExecutor = new ThreadPoolExecutor(0, 10, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+			scheduleService = Executors.newScheduledThreadPool(1);
+			scheduleService.scheduleWithFixedDelay(new Runnable() {
+				@Override
+				public void run() {
+					// 失败的任务
+					while (notifyFailedTasks.size() > 0) {
+						NotifyClientTask notifyClientTask = notifyFailedTasks.pollFirst();
+						// 现在的实现重试将不能保证数据一致的状态
+						// 简单的关闭连接，让客户端重新初始化
+						IoSession session = clientMap.get(notifyClientTask.getClientId());
+						// 需要判断，可能已经关闭
+						if (session != null && session.isConnected()) {
+							logger.warn(
+									"session to be closed because of sending command failed , clientId ,targetId:{} ,method:{} , remote address:{}",
+									new Object[] { notifyClientTask.getClientId(), NOTIFY_CLIENT_TARGET_ID, notifyClientTask.getMethod(),
+											session.getRemoteAddress() });
+							session.close(true);
+						}
+					}
+				}
+			}, 1, 1, TimeUnit.SECONDS);
 		} catch (IOException e) {
-			logger.error("tree configuartion start failed ." , e);
+			logger.error("tree configuartion start failed .", e);
 		}
 	}
 
@@ -226,8 +255,11 @@ public class TreeConfigServer {
 	}
 
 	public void shutdown() {
-		if (executorService != null) {
-			executorService.shutdown();
+		if (taskExecutor != null) {
+			taskExecutor.shutdown();
+		}
+		if (scheduleService != null) {
+			scheduleService.shutdown();
 		}
 		acceptor.unbind();
 		acceptor.dispose();
@@ -241,19 +273,6 @@ public class TreeConfigServer {
 
 	public void setPort(int port) {
 		this.port = port;
-	}
-
-	class NotifyTaskExecute implements Runnable {
-		private NotifyClientTask task;
-
-		public NotifyTaskExecute(NotifyClientTask task) {
-			this.task = task;
-		}
-
-		@Override
-		public void run() {
-
-		}
 	}
 
 	class NotifyClientTask {
