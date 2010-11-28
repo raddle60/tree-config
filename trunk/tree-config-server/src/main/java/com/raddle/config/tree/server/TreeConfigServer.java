@@ -4,8 +4,6 @@
 package com.raddle.config.tree.server;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.Deque;
 import java.util.HashMap;
@@ -20,7 +18,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.beanutils.MethodUtils;
 import org.apache.mina.core.service.IoAcceptor;
 import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.core.session.IoSession;
@@ -34,6 +31,7 @@ import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.remote.exception.ResponseTimeoutException;
+import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.nio.mina.cmd.CommandContext;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
 import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
@@ -92,7 +90,7 @@ public class TreeConfigServer {
 							// 对于同一个client发过来的，能保证是按调用顺序执行
 							// 由于client调用都有超时限制，所以不能执行时间太长，可以用队列的方式执行
 							// 本地的执行非常快，直接执行
-							result = TreeConfigServer.this.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
+							result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 							// 通知通过网络，所以用队列执行
 							for (final String clientId : clientMap.keySet()) {
 								// 发送者不用通知
@@ -130,7 +128,7 @@ public class TreeConfigServer {
 						}
 					} else {
 						// 读操作直接执行
-						result = TreeConfigServer.this.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
+						result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 					}
 				}
 				return result;
@@ -218,44 +216,6 @@ public class TreeConfigServer {
 		logger.debug("register client [{}] , remote address [{}] .", clientId, CommandContext.getIoSession().getRemoteAddress());
 		CommandContext.getIoSession().setAttribute(ATTR_KEY_CLIENT_ID, clientId);
 		clientMap.put(clientId, CommandContext.getIoSession());
-	}
-
-	private Object invokeMethod(Object target, String method, Object[] args) throws NoSuchMethodException, IllegalAccessException,
-			InvocationTargetException {
-		if (target == null) {
-			throw new IllegalArgumentException(" target is null");
-		}
-		if (method == null) {
-			throw new IllegalArgumentException(" method is null");
-		}
-		if (args == null || args.length == 0) {
-			return MethodUtils.invokeMethod(target, method, args);
-		} else {
-			boolean hasNull = false;
-			for (Object object : args) {
-				if (object == null) {
-					hasNull = true;
-				}
-			}
-			if (!hasNull) {
-				// 不为null可以根据参数找到精确的方法
-				return MethodUtils.invokeMethod(target, method, args);
-			} else {
-				// 有null无法反射参数类型，只有根据名称找
-				Class<?> targetClass = target.getClass();
-				Method targetMethod = null;
-				for (Method publicMethod : targetClass.getMethods()) {
-					if (publicMethod.getName().equals(publicMethod)) {
-						targetMethod = publicMethod;
-						break;
-					}
-				}
-				if (targetMethod == null) {
-					throw new NoSuchMethodException("No such method: " + method + "() on object: " + targetClass.getName());
-				}
-				return targetMethod.invoke(target, args);
-			}
-		}
 	}
 
 	public void shutdown() {
