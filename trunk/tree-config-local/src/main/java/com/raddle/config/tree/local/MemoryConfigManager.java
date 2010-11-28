@@ -120,6 +120,9 @@ public class MemoryConfigManager implements TreeConfigManager {
 
 	@Override
 	public List<TreeConfigNode> getChildren(TreeConfigPath path) {
+		if(path == null){
+			return new ArrayList<TreeConfigNode>(root.getChildren().values());
+		}
 		DefaultConfigNode node = (DefaultConfigNode) getNodeByPath(path, false);
 		ArrayList<TreeConfigNode> list = new ArrayList<TreeConfigNode>();
 		if(node != null){
