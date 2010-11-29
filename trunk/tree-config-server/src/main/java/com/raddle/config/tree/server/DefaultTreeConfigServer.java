@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.config.tree.api.TreeConfigManager;
+import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
@@ -216,6 +217,10 @@ public class DefaultTreeConfigServer {
 		logger.debug("register client [{}] , remote address [{}] .", clientId, CommandContext.getIoSession().getRemoteAddress());
 		CommandContext.getIoSession().setAttribute(ATTR_KEY_CLIENT_ID, clientId);
 		clientMap.put(clientId, CommandContext.getIoSession());
+	}
+	
+	public void bindingDisconnectedValue(TreeConfigNode node ,boolean updatedNodeValue){
+		logger.debug("binding disconnected value , remote address [{}]" , CommandContext.getIoSession().getRemoteAddress());
 	}
 
 	public void shutdown() {
