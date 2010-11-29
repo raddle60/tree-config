@@ -42,8 +42,8 @@ import com.raddle.nio.mina.hessian.HessianEncoder;
  * @author xurong
  * 
  */
-public class TreeConfigServer {
-	private static final Logger logger = LoggerFactory.getLogger(TreeConfigServer.class);
+public class DefaultTreeConfigServer {
+	private static final Logger logger = LoggerFactory.getLogger(DefaultTreeConfigServer.class);
 	private static final String NOTIFY_CLIENT_TARGET_ID = "treeConfigManager";
 	private static final String ATTR_KEY_CLIENT_ID = "client_id";
 	private static final Set<String> updateMethodSet = new HashSet<String>();
@@ -85,7 +85,7 @@ public class TreeConfigServer {
 				Object result = null;
 				if ("treeConfigManager".equals(methodInvoke.getTargetId())) {
 					if (updateMethodSet.contains(methodInvoke.getMethod())) {
-						synchronized (TreeConfigServer.this) {
+						synchronized (DefaultTreeConfigServer.this) {
 							// 更新操作需要同步，保证执行顺序,先到先执行
 							// 对于同一个client发过来的，能保证是按调用顺序执行
 							// 由于client调用都有超时限制，所以不能执行时间太长，可以用队列的方式执行
@@ -140,10 +140,10 @@ public class TreeConfigServer {
 					return localManager;
 				}
 				if ("treeConfigRegister".equals(id)) {
-					return TreeConfigServer.this;
+					return DefaultTreeConfigServer.this;
 				}
 				if ("treeConfigBinder".equals(id)) {
-					return TreeConfigServer.this;
+					return DefaultTreeConfigServer.this;
 				}
 				return localManager;
 			}
@@ -160,7 +160,7 @@ public class TreeConfigServer {
 				logger.debug("Session closed , remote address [{}], clientId [{}] .", session.getRemoteAddress(), session
 						.getAttribute(ATTR_KEY_CLIENT_ID));
 				// 防止在循环发通知的过程中，并发remove
-				synchronized (TreeConfigServer.this) {
+				synchronized (DefaultTreeConfigServer.this) {
 					clientMap.remove(session.getAttribute(ATTR_KEY_CLIENT_ID));
 				}
 			}
