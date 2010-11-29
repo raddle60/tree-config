@@ -43,7 +43,6 @@ import com.raddle.nio.mina.hessian.HessianEncoder;
  * @author xurong
  * 
  */
-@SuppressWarnings("unchecked")
 public class DefaultTreeConfigServer {
 	private static final Logger logger = LoggerFactory.getLogger(DefaultTreeConfigServer.class);
 	private static final String NOTIFY_CLIENT_TARGET_ID = "treeConfigManager";
@@ -57,7 +56,7 @@ public class DefaultTreeConfigServer {
 	private ExecutorService taskExecutor = null;
 	private ScheduledExecutorService scheduleService = null;
 	private Deque<NotifyClientTask> notifyFailedTasks = new LinkedList<NotifyClientTask>();
-	private Map<String, IoSession> clientMap = new Hashtable();
+	private Map<String, IoSession> clientMap = new Hashtable<String, IoSession>();
 	static {
 		updateMethodSet.add("saveNode");
 		updateMethodSet.add("saveNodes");
