@@ -59,12 +59,12 @@ public class DefaultTreeConfigServer {
 	private Map<String, IoSession> clientMap = new HashMap<String, IoSession>();
 	static {
 		updateMethodSet.add("saveNode");
+		updateMethodSet.add("saveNodes");
 		updateMethodSet.add("saveNodeValue");
 		updateMethodSet.add("saveAttribute");
 		updateMethodSet.add("saveAttributeValue");
 		updateMethodSet.add("removeAttributes");
 		updateMethodSet.add("removeNode");
-		updateMethodSet.add("saveNodes");
 		updateMethodSet.add("removeNodes");
 	}
 
