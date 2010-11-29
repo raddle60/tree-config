@@ -5,6 +5,7 @@ package com.raddle.config.tree.client.impl;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
@@ -46,6 +47,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private List<NodePath> initialGetNodes = new LinkedList<NodePath>();
 	private List<NodePath> initialPushNodes = new LinkedList<NodePath>();
 	private List<UpdateNode> disconnectedNodes = new LinkedList<UpdateNode>();
+	private SocketAddress localAddress = null;
 
 	public DefaultTreeConfigClient(String clientId, String serverIp, int serverPort) {
 		this.clientId = clientId;
@@ -100,6 +102,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				public void sessionCreated(IoSession session) throws Exception {
 					logger.debug("Session created , remote address [{}] .", session.getRemoteAddress());
 					remoteManager = new RemoteConfigManager(session);
+					localAddress = session.getLocalAddress();
 				}
 			});
 			logger.info("connecting to {}:{}", serverIp, serverPort);
@@ -378,6 +381,10 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		public void setRecursive(boolean recursive) {
 			this.recursive = recursive;
 		}
+	}
+
+	public SocketAddress getLocalAddress() {
+		return localAddress;
 	}
 
 }
