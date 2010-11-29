@@ -9,7 +9,7 @@ import com.raddle.config.tree.api.TreeConfigNode;
  */
 public interface TreeConfigClient extends TreeConfigManager {
 	/**
-	 * 绑定断开连接时的值，连接断开后，服务端自动设置这些值
+	 * 绑定断开连接时的值，连接断开后，服务端自动设置这些值,只更新值，不会删除属性
 	 * @param disconnectedValue 端口连接后的值
 	 * @param includeNodeValue 是否更新节点的值
 	 */
