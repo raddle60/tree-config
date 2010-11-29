@@ -1,12 +1,12 @@
 package com.raddle.config.tree.server;
 
-public class TreeConfigServerMain {
+public class DefaultTreeConfigServerMain {
 
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		TreeConfigServer server = new TreeConfigServer();
+		DefaultTreeConfigServer server = new DefaultTreeConfigServer();
 		server.start();
 		try {
 			Thread.sleep(10 * 1000);
