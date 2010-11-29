@@ -6,8 +6,8 @@ package com.raddle.config.tree.server;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
@@ -43,6 +43,7 @@ import com.raddle.nio.mina.hessian.HessianEncoder;
  * @author xurong
  * 
  */
+@SuppressWarnings("unchecked")
 public class DefaultTreeConfigServer {
 	private static final Logger logger = LoggerFactory.getLogger(DefaultTreeConfigServer.class);
 	private static final String NOTIFY_CLIENT_TARGET_ID = "treeConfigManager";
@@ -56,7 +57,7 @@ public class DefaultTreeConfigServer {
 	private ExecutorService taskExecutor = null;
 	private ScheduledExecutorService scheduleService = null;
 	private Deque<NotifyClientTask> notifyFailedTasks = new LinkedList<NotifyClientTask>();
-	private Map<String, IoSession> clientMap = new HashMap<String, IoSession>();
+	private Map<String, IoSession> clientMap = new Hashtable();
 	static {
 		updateMethodSet.add("saveNode");
 		updateMethodSet.add("saveNodes");
@@ -160,10 +161,7 @@ public class DefaultTreeConfigServer {
 			public void sessionClosed(IoSession session) throws Exception {
 				logger.debug("Session closed , remote address [{}], clientId [{}] .", session.getRemoteAddress(), session
 						.getAttribute(ATTR_KEY_CLIENT_ID));
-				// 防止在循环发通知的过程中，并发remove
-				synchronized (DefaultTreeConfigServer.this) {
-					clientMap.remove(session.getAttribute(ATTR_KEY_CLIENT_ID));
-				}
+				clientMap.remove(session.getAttribute(ATTR_KEY_CLIENT_ID));
 			}
 
 			@Override
