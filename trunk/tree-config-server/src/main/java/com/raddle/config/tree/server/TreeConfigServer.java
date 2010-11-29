@@ -50,7 +50,7 @@ public class TreeConfigServer {
 	private int invokeTimeoutSeconds = 5;
 	private int readerIdleSeconds = 60 * 10;
 	private IoAcceptor acceptor = new NioSocketAcceptor();
-	private TreeConfigManager manager = new MemoryConfigManager();
+	private TreeConfigManager localManager = new MemoryConfigManager();
 	private int port = 9877;
 	private ExecutorService taskExecutor = null;
 	private ScheduledExecutorService scheduleService = null;
@@ -137,7 +137,7 @@ public class TreeConfigServer {
 			@Override
 			protected Object getObject(String id) {
 				if ("treeConfigManager".equals(id)) {
-					return manager;
+					return localManager;
 				}
 				if ("treeConfigRegister".equals(id)) {
 					return TreeConfigServer.this;
@@ -145,7 +145,7 @@ public class TreeConfigServer {
 				if ("treeConfigBinder".equals(id)) {
 					return TreeConfigServer.this;
 				}
-				return manager;
+				return localManager;
 			}
 
 			@Override
@@ -295,5 +295,13 @@ public class TreeConfigServer {
 
 	public void setReaderIdleSeconds(int readerIdleSeconds) {
 		this.readerIdleSeconds = readerIdleSeconds;
+	}
+
+	public TreeConfigManager getLocalManager() {
+		return localManager;
+	}
+
+	public void setLocalManager(TreeConfigManager localManager) {
+		this.localManager = localManager;
 	}
 }
