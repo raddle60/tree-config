@@ -206,7 +206,7 @@ public class DefaultTreeConfigServer {
 					}
 				}
 			}, 1, 1, TimeUnit.SECONDS);
-			logger.info("tree configuartion server starting completed in {}ms " , System.currentTimeMillis() - startAt);
+			logger.info("server start completed in {}ms " , System.currentTimeMillis() - startAt);
 		} catch (IOException e) {
 			logger.error("tree configuartion start failed .", e);
 		}
