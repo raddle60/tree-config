@@ -48,7 +48,7 @@ public class DefaultTreeConfigServer {
 	private static final String ATTR_KEY_CLIENT_ID = "client_id";
 	private static final Set<String> updateMethodSet = new HashSet<String>();
 	private int invokeTimeoutSeconds = 5;
-	private int readerIdleSeconds = 60 * 10;
+	private int readerIdleSeconds = 60 * 30;
 	private IoAcceptor acceptor = new NioSocketAcceptor();
 	private TreeConfigManager localManager = new MemoryConfigManager();
 	private int port = 9877;
