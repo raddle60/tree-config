@@ -5,6 +5,7 @@ package com.raddle.config.tree.client.impl;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,6 +43,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private TreeConfigManager localManager = new MemoryConfigManager();
 	private TreeConfigManager remoteManager = null;
 	private NioSocketConnector connector = null;
+	private List<NodePath> initialGetNodes = new LinkedList<NodePath>();
+	private List<NodePath> initialPushNodes = new LinkedList<NodePath>();
+	private List<UpdateNode> disconnectedNodes = new LinkedList<UpdateNode>();
 
 	public DefaultTreeConfigClient(String clientId, String serverIp, int serverPort) {
 		this.clientId = clientId;
@@ -114,99 +118,178 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	}
 
 	@Override
-	public void bindDisconnectedValue(TreeConfigNode disconnectedValue, boolean includeNodeValue) {
-		// TODO Auto-generated method stub
-
+	public void bindDisconnectedNodes(List<TreeConfigNode> nodes, boolean includeNodeValue) {
+		for (TreeConfigNode treeConfigNode : nodes) {
+			disconnectedNodes.add(new UpdateNode(treeConfigNode, includeNodeValue));
+		}
 	}
 
 	@Override
+	public void bindInitialPushNodes(List<TreeConfigPath> paths, boolean recursive) {
+		for (TreeConfigPath treeConfigPath : paths) {
+			initialPushNodes.add(new NodePath(treeConfigPath, recursive));
+		}
+	}
+	
+	@Override
+	public void bindInitialGetNodes(List<TreeConfigPath> paths, boolean recursive) {
+		for (TreeConfigPath treeConfigPath : paths) {
+			initialGetNodes.add(new NodePath(treeConfigPath, recursive));
+		}
+	}
+	
+	@Override
 	public void removeAttributes(TreeConfigPath path, String... attributeNames) {
-		// TODO Auto-generated method stub
-
+		localManager.removeAttributes(path, attributeNames);
+		if (remoteManager != null) {
+			remoteManager.removeAttributes(path, attributeNames);
+		}
 	}
 
 	@Override
 	public boolean removeNode(TreeConfigPath path, boolean recursive) {
-		// TODO Auto-generated method stub
-		return false;
+		boolean ret = localManager.removeNode(path, recursive);
+		if (ret && remoteManager != null) {
+			remoteManager.removeNode(path, recursive);
+		}
+		return ret;
 	}
 
 	@Override
 	public boolean removeNodes(List<TreeConfigPath> paths, boolean recursive) {
-		// TODO Auto-generated method stub
-		return false;
+		boolean ret = localManager.removeNodes(paths, recursive);
+		if (ret && remoteManager != null) {
+			remoteManager.removeNodes(paths, recursive);
+		}
+		return ret;
 	}
 
 	@Override
 	public void saveAttribute(TreeConfigPath path, TreeConfigAttribute attribute) {
-		// TODO Auto-generated method stub
-
+		localManager.saveAttribute(path, attribute);
+		if (remoteManager != null) {
+			remoteManager.saveAttribute(path, attribute);
+		}
 	}
 
 	@Override
 	public void saveAttributeValue(TreeConfigPath path, String attributeName, Serializable value) {
-		// TODO Auto-generated method stub
-
+		localManager.saveAttributeValue(path, attributeName, value);
+		if (remoteManager != null) {
+			remoteManager.saveAttributeValue(path, attributeName, value);
+		}
 	}
 
 	@Override
 	public void saveNode(TreeConfigNode node, boolean updateNodeValue) {
-		// TODO Auto-generated method stub
-
+		localManager.saveNode(node, updateNodeValue);
+		if (remoteManager != null) {
+			remoteManager.saveNode(node, updateNodeValue);
+		}
 	}
 
 	@Override
 	public void saveNodeValue(TreeConfigPath path, Serializable value) {
-		// TODO Auto-generated method stub
-
+		localManager.saveNodeValue(path, value);
+		if (remoteManager != null) {
+			remoteManager.saveNodeValue(path, value);
+		}
 	}
 
 	@Override
 	public void saveNodes(List<TreeConfigNode> nodes, boolean updateNodeValue) {
-		// TODO Auto-generated method stub
-
+		localManager.saveNodes(nodes, updateNodeValue);
+		if (remoteManager != null) {
+			remoteManager.saveNodes(nodes, updateNodeValue);
+		}
 	}
 
 	@Override
 	public TreeConfigAttribute getAttribute(TreeConfigPath path, String attributeName) {
-		// TODO Auto-generated method stub
-		return null;
+		TreeConfigAttribute attribute = localManager.getAttribute(path, attributeName);
+		if(attribute == null && remoteManager != null){
+			attribute = remoteManager.getAttribute(path, attributeName);
+			if(attribute != null){
+				localManager.saveAttribute(path, attribute);
+			}
+		}
+		return attribute;
 	}
 
 	@Override
 	public Serializable getAttributeValue(TreeConfigPath path, String attributeName) {
-		// TODO Auto-generated method stub
-		return null;
+		Serializable value = localManager.getAttributeValue(path, attributeName);
+		if(value == null && remoteManager != null){
+			value = remoteManager.getAttributeValue(path, attributeName);
+			if(value != null){
+				localManager.saveAttributeValue(path, attributeName, value);
+			}
+		}
+		return value;
 	}
 
 	@Override
 	public List<TreeConfigNode> getChildren(TreeConfigPath path) {
-		// TODO Auto-generated method stub
-		return null;
+		List<TreeConfigNode> children = localManager.getChildren(path);
+		if(children.size() == 0 && remoteManager != null){
+			children = remoteManager.getChildren(path);
+			if(children.size() > 0 ){
+				localManager.saveNodes(children, true);
+			}
+		}
+		return children;
 	}
 
 	@Override
 	public TreeConfigNode getNode(TreeConfigPath path) {
-		// TODO Auto-generated method stub
-		return null;
+		TreeConfigNode node = localManager.getNode(path);
+		if(node == null && remoteManager != null){
+			node = remoteManager.getNode(path);
+			if(node != null){
+				localManager.saveNode(node, true);
+			}
+		}
+		return node;
 	}
 
 	@Override
 	public Serializable getNodeValue(TreeConfigPath path) {
-		// TODO Auto-generated method stub
-		return null;
+		Serializable value = localManager.getNodeValue(path);
+		if(value == null && remoteManager != null){
+			value = remoteManager.getNodeValue(path);
+			if(value != null){
+				localManager.saveNodeValue(path, value);
+			}
+		}
+		return value;
 	}
 
 	@Override
 	public boolean isAttributesExist(TreeConfigPath path, String... attributeNames) {
-		// TODO Auto-generated method stub
-		return false;
+		boolean exist = localManager.isAttributesExist(path, attributeNames);
+		if (!exist && remoteManager != null) {
+			exist = remoteManager.isAttributesExist(path, attributeNames);
+			if(exist){
+				for (String attributeName : attributeNames) {
+					TreeConfigAttribute attribute = remoteManager.getAttribute(path, attributeName);
+					localManager.saveAttribute(path, attribute);
+				}
+			}
+		}
+		return exist;
 	}
 
 	@Override
 	public boolean isNodeExist(TreeConfigPath path) {
-		// TODO Auto-generated method stub
-		return false;
+		boolean exist = localManager.isNodeExist(path);
+		if (!exist && remoteManager != null) {
+			exist = remoteManager.isNodeExist(path);
+			if (exist) {
+				TreeConfigNode node = remoteManager.getNode(path);
+				localManager.saveNode(node, true);
+			}
+		}
+		return exist;
 	}
 
 	public TreeConfigManager getLocalManager() {
@@ -243,6 +326,58 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 	public void setRemoteManager(TreeConfigManager remoteManager) {
 		this.remoteManager = remoteManager;
+	}
+
+	class UpdateNode {
+		private TreeConfigNode node;
+		private boolean updateNodeValue;
+
+		public UpdateNode(TreeConfigNode node, boolean updateNodeValue) {
+			this.node = node;
+			this.updateNodeValue = updateNodeValue;
+		}
+
+		public TreeConfigNode getNode() {
+			return node;
+		}
+
+		public void setNode(TreeConfigNode node) {
+			this.node = node;
+		}
+
+		public boolean isUpdateNodeValue() {
+			return updateNodeValue;
+		}
+
+		public void setUpdateNodeValue(boolean updateNodeValue) {
+			this.updateNodeValue = updateNodeValue;
+		}
+	}
+
+	class NodePath {
+		private TreeConfigPath path;
+		private boolean recursive;
+
+		public NodePath(TreeConfigPath path, boolean recursive) {
+			this.path = path;
+			this.recursive = recursive;
+		}
+
+		public TreeConfigPath getPath() {
+			return path;
+		}
+
+		public void setPath(TreeConfigPath path) {
+			this.path = path;
+		}
+
+		public boolean isRecursive() {
+			return recursive;
+		}
+
+		public void setRecursive(boolean recursive) {
+			this.recursive = recursive;
+		}
 	}
 
 }
