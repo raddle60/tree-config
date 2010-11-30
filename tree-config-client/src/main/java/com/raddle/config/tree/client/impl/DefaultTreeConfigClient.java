@@ -573,8 +573,16 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				syncSender.sendCommand("treeConfigManager", "saveNodes", new Object[] { pushNodes, true }, 3);
 				// 初始化client用到的节点
 				logger.debug("getting initial nodes");
-				for (NodePath nodePath : initialGetNodes) {
-					freshNode(nodePath.getPath() ,nodePath.isRecursive());
+				try{
+					synchronized (writeLock) {
+						// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+						currentReaderCount.incrementAndGet();
+					}
+					for (NodePath nodePath : initialGetNodes) {
+						freshNode(nodePath.getPath() ,nodePath.isRecursive());
+					}
+				} finally {
+					currentReaderCount.decrementAndGet();
 				}
 			} catch (Throwable e) {
 				logger.error(e.getMessage(), e);
