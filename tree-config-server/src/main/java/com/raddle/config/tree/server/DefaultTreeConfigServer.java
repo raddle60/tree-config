@@ -122,6 +122,8 @@ public class DefaultTreeConfigServer {
 						// 读操作直接执行
 						result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 					}
+				} else {
+					result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 				}
 				return result;
 			}
