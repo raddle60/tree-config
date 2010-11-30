@@ -33,6 +33,7 @@ import com.raddle.config.tree.api.TreeConfigPath;
 import com.raddle.config.tree.client.TreeConfigClient;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.RemoteConfigManager;
+import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.utils.ExceptionUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
@@ -549,20 +550,12 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				// 注册客户端
 				logger.debug("register client , clientId : {}", clientId);
 				IoSession session = connector.getManagedSessions().values().iterator().next();
-				SessionCommandSender sender = new SessionCommandSender(session);
-				InvokeCommand registerClient = new InvokeCommand();
-				registerClient.setTargetId("treeConfigRegister");
-				registerClient.setMethod("registerClient");
-				registerClient.setArgs(new Object[] { clientId });
-				sender.sendCommand(registerClient);
+				SyncCommandSender syncSender = new SyncCommandSender(session);
+				syncSender.sendCommand("treeConfigRegister", "registerClient", new Object[] { clientId }, 3);
 				// 绑定断开连接时的值
 				logger.debug("binding disconnected value");
 				for (UpdateNode updateNode : disconnectedNodes) {
-					InvokeCommand bindingValue = new InvokeCommand();
-					bindingValue.setTargetId("treeConfigBinder");
-					bindingValue.setMethod("bindingDisconnectedValue");
-					bindingValue.setArgs(new Object[] { updateNode.getNode(), updateNode.isUpdateNodeValue() });
-					sender.sendCommand(bindingValue);
+					syncSender.sendCommand("treeConfigBinder", "bindingDisconnectedValue", new Object[] {updateNode.getNode(), updateNode.isUpdateNodeValue()}, 3);
 				}
 				// 设置sever上的节点值
 				logger.debug("setting push nodes");
@@ -570,11 +563,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				for (NodePath nodePath : initialPushNodes) {
 					putPushNodes(nodePath.getPath(), nodePath.isRecursive(), pushNodes);
 				}
-				InvokeCommand pushNodeCmd = new InvokeCommand();
-				pushNodeCmd.setTargetId("treeConfigManager");
-				pushNodeCmd.setMethod("saveNodes");
-				pushNodeCmd.setArgs(new Object[] { pushNodes, true });
-				sender.sendCommand(pushNodeCmd);
+				syncSender.sendCommand("treeConfigManager", "saveNodes", new Object[] { pushNodes, true }, 3);
 				// 初始化client用到的节点
 				logger.debug("getting initial nodes");
 				for (NodePath nodePath : initialGetNodes) {
