@@ -9,6 +9,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -26,6 +27,7 @@ import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.local.MemoryConfigManager;
@@ -209,8 +211,12 @@ public class DefaultTreeConfigServer {
 		clientMap.put(clientId, CommandContext.getIoSession());
 	}
 	
-	public void bindingDisconnectedValue(TreeConfigNode node ,boolean updatedNodeValue){
-		logger.debug("binding disconnected value , remote address [{}]" , CommandContext.getIoSession().getRemoteAddress());
+	public void bindDisconnectedValue(TreeConfigNode node ,boolean updatedNodeValue){
+		logger.debug("bind disconnected value , remote address [{}]" , CommandContext.getIoSession().getRemoteAddress());
+	}
+	
+	public void bindlisteningNodes(List<DefaultNodeSelector> listeningNodes){
+		logger.debug("bind listening nodes , remote address [{}]" , CommandContext.getIoSession().getRemoteAddress());
 	}
 
 	public void shutdown() {

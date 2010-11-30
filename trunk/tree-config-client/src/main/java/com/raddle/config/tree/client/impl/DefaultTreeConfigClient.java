@@ -26,6 +26,7 @@ import org.apache.mina.transport.socket.nio.NioSocketConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
@@ -59,8 +60,8 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private TreeConfigManager localManager = new MemoryConfigManager();
 	private TreeConfigManager remoteManager = null;
 	private NioSocketConnector connector = null;
-	private List<NodePath> initialGetNodes = new LinkedList<NodePath>();
-	private List<NodePath> initialPushNodes = new LinkedList<NodePath>();
+	private List<DefaultNodeSelector> initialGetNodes = new LinkedList<DefaultNodeSelector>();
+	private List<DefaultNodeSelector> initialPushNodes = new LinkedList<DefaultNodeSelector>();
 	private List<UpdateNode> disconnectedNodes = new LinkedList<UpdateNode>();
 	private Deque<InvokeCommand> notifyTask = new LinkedList<InvokeCommand>();
 	private SocketAddress localAddress = null;
@@ -247,12 +248,12 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 	@Override
 	public void bindInitialPushNodes(TreeConfigPath path, boolean recursive) {
-		initialPushNodes.add(new NodePath(path, recursive));
+		initialPushNodes.add(new DefaultNodeSelector(path, recursive));
 	}
 	
 	@Override
 	public void bindInitialGetNodes(TreeConfigPath path, boolean recursive) {
-		initialGetNodes.add(new NodePath(path, recursive));
+		initialGetNodes.add(new DefaultNodeSelector(path, recursive));
 	}
 	
 	@Override
@@ -485,14 +486,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		this.connectTimeoutMs = connectTimeoutMs;
 	}
 
-	public TreeConfigManager getRemoteManager() {
-		return remoteManager;
-	}
-
-	public void setRemoteManager(TreeConfigManager remoteManager) {
-		this.remoteManager = remoteManager;
-	}
-	
 	public SocketAddress getLocalAddress() {
 		return localAddress;
 	}
@@ -523,32 +516,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		}
 	}
 
-	class NodePath {
-		private TreeConfigPath path;
-		private boolean recursive;
-
-		public NodePath(TreeConfigPath path, boolean recursive) {
-			this.path = path;
-			this.recursive = recursive;
-		}
-
-		public TreeConfigPath getPath() {
-			return path;
-		}
-
-		public void setPath(TreeConfigPath path) {
-			this.path = path;
-		}
-
-		public boolean isRecursive() {
-			return recursive;
-		}
-
-		public void setRecursive(boolean recursive) {
-			this.recursive = recursive;
-		}
-	}
-
 	class SyncTask implements Runnable {
 		
 		@Override
@@ -565,12 +532,15 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				// 绑定断开连接时的值
 				logger.debug("binding disconnected value");
 				for (UpdateNode updateNode : disconnectedNodes) {
-					syncSender.sendCommand("treeConfigBinder", "bindingDisconnectedValue", new Object[] {updateNode.getNode(), updateNode.isUpdateNodeValue()}, 3);
+					syncSender.sendCommand("treeConfigBinder", "bindDisconnectedValue", new Object[] {updateNode.getNode(), updateNode.isUpdateNodeValue()}, 3);
 				}
+				// 绑定接收通知的节点
+				logger.debug("binding listening nodes");
+				syncSender.sendCommand("treeConfigBinder", "bindlisteningNodes", new Object[] { initialGetNodes }, 3);
 				// 设置sever上的节点值
 				logger.debug("setting push nodes");
 				List<TreeConfigNode> pushNodes = new LinkedList<TreeConfigNode>();
-				for (NodePath nodePath : initialPushNodes) {
+				for (DefaultNodeSelector nodePath : initialPushNodes) {
 					putPushNodes(nodePath.getPath(), nodePath.isRecursive(), pushNodes);
 				}
 				syncSender.sendCommand("treeConfigManager", "saveNodes", new Object[] { pushNodes, true }, 3);
@@ -581,7 +551,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 						// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
 						currentReaderCount.incrementAndGet();
 					}
-					for (NodePath nodePath : initialGetNodes) {
+					for (DefaultNodeSelector nodePath : initialGetNodes) {
 						freshNode(nodePath.getPath() ,nodePath.isRecursive());
 					}
 				} finally {
