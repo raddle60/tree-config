@@ -6,6 +6,7 @@ package com.raddle.config.tree.client.impl;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +32,7 @@ import com.raddle.config.tree.api.TreeConfigPath;
 import com.raddle.config.tree.client.TreeConfigClient;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.RemoteConfigManager;
+import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.nio.mina.cmd.SessionCommandSender;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
@@ -55,11 +57,10 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private List<NodePath> initialGetNodes = new LinkedList<NodePath>();
 	private List<NodePath> initialPushNodes = new LinkedList<NodePath>();
 	private List<UpdateNode> disconnectedNodes = new LinkedList<UpdateNode>();
+	private Deque<InvokeCommand> notifyTask = new LinkedList<InvokeCommand>();
 	private SocketAddress localAddress = null;
 	private ExecutorService taskExecutor = null;
-	private ScheduledExecutorService syncSchedule = null;
 	private ScheduledExecutorService pingSchedule = null;
-	private int syncSeconds = 60 * 10;
 	private int pingSeconds = 60;
 
 	public DefaultTreeConfigClient(String clientId, String serverIp, int serverPort) {
@@ -111,6 +112,8 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				public void sessionClosed(IoSession session) throws Exception {
 					logger.debug("Session closed , remote address [{}] .", session.getRemoteAddress());
 					remoteManager = null;
+					// 断开连接后会重新初始化，以前的通知已经无效
+					notifyTask.clear();
 				}
 
 				@Override
@@ -130,12 +133,74 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			} catch (Exception e) {
 				logger.warn("connecting to {}:{} failed." , serverIp, serverPort);
 			}
-			logger.info("synchronize nodes per {} seconds" , syncSeconds);
-			syncSchedule = Executors.newScheduledThreadPool(1);
-			syncSchedule.scheduleWithFixedDelay(new SyncTask(), syncSeconds, syncSeconds, TimeUnit.SECONDS);
 			logger.info("ping server per {} seconds" , pingSeconds);
 			pingSchedule = Executors.newScheduledThreadPool(1);
 			pingSchedule.scheduleWithFixedDelay(new PingTask(), pingSeconds, pingSeconds, TimeUnit.SECONDS);
+			// 保持连接
+			logger.info("starting reconnect thread");
+			Thread checkConnectionThread = new Thread(){
+
+				@Override
+				public void run() {
+					// 断开连接后重连
+					if (connector.getManagedSessionCount() == 0) {
+						try {
+							ConnectFuture future = connector.connect(new InetSocketAddress(serverIp, serverPort));
+							future.awaitUninterruptibly();
+							future.getSession();
+						} catch (Exception e) {
+							logger.error(e.getMessage());
+						}
+					}
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						logger.warn(e.getMessage(), e);
+					}
+				}
+			};
+			checkConnectionThread.setDaemon(true);
+			checkConnectionThread.start();
+			// 发送通知
+			logger.info("starting notify thread");
+			Thread notifyThread = new Thread(){
+				@Override
+				public void run() {
+					while (true) {
+						InvokeCommand command = null;
+						synchronized (notifyTask) {
+							if(notifyTask.size() > 0){
+								command = notifyTask.pollFirst();
+							} else {
+								try {
+									notifyTask.wait();
+								} catch (InterruptedException e) {
+									logger.warn(e.getMessage(), e);
+								}
+							}
+						}
+						try {
+							InvokeUtils.invokeMethod(remoteManager, command.getMethod(), command.getArgs());
+						} catch (RemoteExecuteException e) {
+							// 远端的异常，忽略
+						} catch (Exception e) {
+							logger.error(e.getMessage(), e);
+							// 失败了放回队列头，重新发送。
+							// 不能在这循环发送，因为连接断开后任务会被清空，这个失败的任务也会被清除
+							// 在这循环将无法被清除
+							notifyTask.addFirst(command);
+							// 失败了10秒以后再试
+							try {
+								Thread.sleep(1000);
+							} catch (InterruptedException e1) {
+								logger.warn(e1.getMessage(), e1);
+							}
+						}
+					}
+				}
+			};
+			notifyThread.setDaemon(true);
+			notifyThread.start();
 			logger.info("client initialize completed");
 		}
 	}
@@ -144,10 +209,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		if(taskExecutor != null){
 			logger.info("task executor shuting down");
 			taskExecutor.shutdown();
-		}
-		if(syncSchedule != null){
-			logger.info("sync schedule shuting down");
-			syncSchedule.shutdown();
 		}
 		if(pingSchedule != null){
 			logger.info("ping schedule shuting down");
@@ -179,67 +240,51 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	@Override
 	public void removeAttributes(TreeConfigPath path, String... attributeNames) {
 		localManager.removeAttributes(path, attributeNames);
-		if (remoteManager != null) {
-			remoteManager.removeAttributes(path, attributeNames);
-		}
+		addNotifyTask("treeConfigManager" ,"removeAttributes", new Object[] { path, attributeNames });
 	}
 
 	@Override
 	public boolean removeNode(TreeConfigPath path, boolean recursive) {
 		boolean ret = localManager.removeNode(path, recursive);
-		if (ret && remoteManager != null) {
-			remoteManager.removeNode(path, recursive);
-		}
+		addNotifyTask("treeConfigManager" ,"removeNode", new Object[] { path, recursive });
 		return ret;
 	}
 
 	@Override
 	public boolean removeNodes(List<TreeConfigPath> paths, boolean recursive) {
 		boolean ret = localManager.removeNodes(paths, recursive);
-		if (ret && remoteManager != null) {
-			remoteManager.removeNodes(paths, recursive);
-		}
+		addNotifyTask("treeConfigManager" ,"removeNodes", new Object[] { paths, recursive });
 		return ret;
 	}
 
 	@Override
 	public void saveAttribute(TreeConfigPath path, TreeConfigAttribute attribute) {
 		localManager.saveAttribute(path, attribute);
-		if (remoteManager != null) {
-			remoteManager.saveAttribute(path, attribute);
-		}
+		addNotifyTask("treeConfigManager" ,"saveAttribute", new Object[] { path, attribute });
 	}
 
 	@Override
 	public void saveAttributeValue(TreeConfigPath path, String attributeName, Serializable value) {
 		localManager.saveAttributeValue(path, attributeName, value);
-		if (remoteManager != null) {
-			remoteManager.saveAttributeValue(path, attributeName, value);
-		}
+		addNotifyTask("treeConfigManager" ,"saveAttributeValue", new Object[] { path, attributeName, value });
 	}
 
 	@Override
 	public void saveNode(TreeConfigNode node, boolean updateNodeValue) {
 		localManager.saveNode(node, updateNodeValue);
-		if (remoteManager != null) {
-			remoteManager.saveNode(node, updateNodeValue);
-		}
+		addNotifyTask("treeConfigManager" ,"saveNode", new Object[] { node, updateNodeValue });
 	}
 
 	@Override
 	public void saveNodeValue(TreeConfigPath path, Serializable value) {
 		localManager.saveNodeValue(path, value);
-		if (remoteManager != null) {
-			remoteManager.saveNodeValue(path, value);
-		}
+		addNotifyTask("treeConfigManager" ,"saveNodeValue", new Object[] { path, value });
 	}
 
 	@Override
 	public void saveNodes(List<TreeConfigNode> nodes, boolean updateNodeValue) {
 		localManager.saveNodes(nodes, updateNodeValue);
-		if (remoteManager != null) {
-			remoteManager.saveNodes(nodes, updateNodeValue);
-		}
+		addNotifyTask("treeConfigManager" ,"saveNodes", new Object[] { nodes, updateNodeValue });
 	}
 
 	@Override
@@ -330,6 +375,14 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		return exist;
 	}
 
+	private void addNotifyTask(String targetId, String method, Object[] args){
+		InvokeCommand command = new InvokeCommand();
+		command.setTargetId(targetId);
+		command.setMethod(method);
+		command.setArgs(args);
+		notifyTask.addLast(command);
+	}
+	
 	public TreeConfigManager getLocalManager() {
 		return localManager;
 	}
@@ -427,42 +480,49 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		@Override
 		public void run() {
 			try {
-				if (connector.getManagedSessionCount() > 0) {
-					logger.debug("register client , clientId : {}", clientId);
-					IoSession session = connector.getManagedSessions().values().iterator().next();
-					SessionCommandSender sender = new SessionCommandSender(session);
-					InvokeCommand registerClient = new InvokeCommand();
-					registerClient.setTargetId("treeConfigRegister");
-					registerClient.setMethod("registerClient");
-					registerClient.setArgs(new Object[] { clientId });
-					sender.sendCommand(registerClient);
-					logger.debug("binding disconnected value");
-					for (UpdateNode updateNode : disconnectedNodes) {
-						InvokeCommand bindingValue = new InvokeCommand();
-						bindingValue.setTargetId("treeConfigBinder");
-						bindingValue.setMethod("bindingDisconnectedValue");
-						bindingValue.setArgs(new Object[] { updateNode.getNode(), updateNode.isUpdateNodeValue() });
-						sender.sendCommand(bindingValue);
-					}
-					logger.debug("setting push nodes");
-					List<TreeConfigNode> pushNodes = new LinkedList<TreeConfigNode>();
-					for (NodePath nodePath : initialPushNodes) {
-						putPushNodes(nodePath.getPath(), nodePath.isRecursive(), pushNodes);
-					}
-					InvokeCommand pushNodeCmd = new InvokeCommand();
-					pushNodeCmd.setTargetId("treeConfigManager");
-					pushNodeCmd.setMethod("saveNodes");
-					pushNodeCmd.setArgs(new Object[] { pushNodes, true });
-					sender.sendCommand(pushNodeCmd);
+				// 注册客户端
+				logger.debug("register client , clientId : {}", clientId);
+				IoSession session = connector.getManagedSessions().values().iterator().next();
+				SessionCommandSender sender = new SessionCommandSender(session);
+				InvokeCommand registerClient = new InvokeCommand();
+				registerClient.setTargetId("treeConfigRegister");
+				registerClient.setMethod("registerClient");
+				registerClient.setArgs(new Object[] { clientId });
+				sender.sendCommand(registerClient);
+				// 绑定断开连接时的值
+				logger.debug("binding disconnected value");
+				for (UpdateNode updateNode : disconnectedNodes) {
+					InvokeCommand bindingValue = new InvokeCommand();
+					bindingValue.setTargetId("treeConfigBinder");
+					bindingValue.setMethod("bindingDisconnectedValue");
+					bindingValue.setArgs(new Object[] { updateNode.getNode(), updateNode.isUpdateNodeValue() });
+					sender.sendCommand(bindingValue);
 				}
-				if(remoteManager != null){
-					logger.debug("getting initial nodes");
-					for (NodePath nodePath : initialGetNodes) {
-						freshNode(nodePath.getPath() ,nodePath.isRecursive());
-					}
+				// 设置sever上的节点值
+				logger.debug("setting push nodes");
+				List<TreeConfigNode> pushNodes = new LinkedList<TreeConfigNode>();
+				for (NodePath nodePath : initialPushNodes) {
+					putPushNodes(nodePath.getPath(), nodePath.isRecursive(), pushNodes);
+				}
+				InvokeCommand pushNodeCmd = new InvokeCommand();
+				pushNodeCmd.setTargetId("treeConfigManager");
+				pushNodeCmd.setMethod("saveNodes");
+				pushNodeCmd.setArgs(new Object[] { pushNodes, true });
+				sender.sendCommand(pushNodeCmd);
+				// 初始化client用到的节点
+				logger.debug("getting initial nodes");
+				for (NodePath nodePath : initialGetNodes) {
+					freshNode(nodePath.getPath() ,nodePath.isRecursive());
 				}
 			} catch (Throwable e) {
 				logger.error(e.getMessage(), e);
+				try {
+					Thread.sleep(10 * 1000);
+				} catch (InterruptedException e1) {
+					logger.warn(e1.getMessage(), e1);
+				}
+				// 执行失败后10秒后继续执行
+				taskExecutor.execute(new SyncTask());
 			}
 		}
 
@@ -534,14 +594,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				logger.error(e.getMessage(), e);
 			}
 		}
-	}
-
-	public int getSyncSeconds() {
-		return syncSeconds;
-	}
-
-	public void setSyncSeconds(int syncSeconds) {
-		this.syncSeconds = syncSeconds;
 	}
 
 	public int getPingSeconds() {

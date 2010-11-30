@@ -31,7 +31,6 @@ import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
-import com.raddle.config.tree.remote.exception.ResponseTimeoutException;
 import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.nio.mina.cmd.CommandContext;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
@@ -105,14 +104,6 @@ public class DefaultTreeConfigServer {
 														invokeTimeoutSeconds);
 											} catch (RemoteExecuteException e) {
 												// 远端的异常，忽略
-											} catch (ResponseTimeoutException e) {
-												logger.warn("wating timeout , clientId {}, targetId:{} ,method:{} , remote address:{}", new Object[] {
-														clientId, NOTIFY_CLIENT_TARGET_ID, methodInvoke.getMethod(),
-														clientMap.get(clientId).getRemoteAddress() });
-												// 等待超时 , 重新发送
-												NotifyClientTask notifyTask = new NotifyClientTask(clientId, methodInvoke.getMethod(), methodInvoke
-														.getArgs());
-												notifyFailedTasks.add(notifyTask);
 											} catch (Exception e) {
 												logger.error(e.getMessage(), e);
 												// 失败了放到失败队列
