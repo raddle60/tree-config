@@ -67,6 +67,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private ExecutorService taskExecutor = null;
 	private ScheduledExecutorService pingSchedule = null;
 	private int pingSeconds = 60;
+	private TreeConfigClientListener listener = null;
 
 	public DefaultTreeConfigClient(String clientId, String serverIp, int serverPort) {
 		this.clientId = clientId;
@@ -92,6 +93,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			connector.setHandler(new AbstractInvokeCommandHandler() {
 				@Override
 				protected Object invokeMethod(MethodInvoke methodInvoke) throws Exception {
+					if(listener != null){
+						listener.commandReceived(methodInvoke);
+					}
 					synchronized (writeLock) {
 						// 等待所有读操作结束
 						while (currentReaderCount.get() > 0) {
@@ -132,6 +136,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 					logger.debug("Session created , remote address [{}] .", session.getRemoteAddress());
 					remoteManager = new RemoteConfigManager(session);
 					localAddress = session.getLocalAddress();
+					if(listener != null){
+						listener.sessionConnected(session);
+					}
 					taskExecutor.execute(new SyncTask());
 				}
 			});
@@ -657,6 +664,14 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 	public void setPingSeconds(int pingSeconds) {
 		this.pingSeconds = pingSeconds;
+	}
+
+	public TreeConfigClientListener getListener() {
+		return listener;
+	}
+
+	public void setListener(TreeConfigClientListener listener) {
+		this.listener = listener;
 	};
 
 }
