@@ -16,6 +16,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.mina.core.future.ConnectFuture;
 import org.apache.mina.core.session.IdleStatus;
@@ -33,6 +34,7 @@ import com.raddle.config.tree.client.TreeConfigClient;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.RemoteConfigManager;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
+import com.raddle.config.tree.utils.ExceptionUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.nio.mina.cmd.SessionCommandSender;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
@@ -51,6 +53,8 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private String serverIp;
 	private int serverPort;
 	private long connectTimeoutMs = 3000;
+	private AtomicInteger currentReaderCount = new AtomicInteger(0);
+	private Object writeLock = new Object();
 	private TreeConfigManager localManager = new MemoryConfigManager();
 	private TreeConfigManager remoteManager = null;
 	private NioSocketConnector connector = null;
@@ -87,7 +91,13 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			connector.setHandler(new AbstractInvokeCommandHandler() {
 				@Override
 				protected Object invokeMethod(MethodInvoke methodInvoke) throws Exception {
-					return InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
+					synchronized (writeLock) {
+						// 等待所有读操作结束
+						while (currentReaderCount.get() > 0) {
+							Thread.sleep(50);
+						}
+						return InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
+					}
 				}
 
 				@Override
@@ -143,19 +153,19 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				@Override
 				public void run() {
 					// 断开连接后重连
-					if (connector.getManagedSessionCount() == 0) {
+					while (connector != null && connector.getManagedSessionCount() == 0) {
 						try {
 							ConnectFuture future = connector.connect(new InetSocketAddress(serverIp, serverPort));
 							future.awaitUninterruptibly();
 							future.getSession();
 						} catch (Exception e) {
-							logger.error(e.getMessage());
+							logger.error("connecting to {}:{} faild , because of {}: {}", new Object[] { serverIp, serverPort, ExceptionUtils.getRootCause(e).getClass(), ExceptionUtils.getRootCause(e).getMessage() });
 						}
-					}
-					try {
-						Thread.sleep(1000);
-					} catch (InterruptedException e) {
-						logger.warn(e.getMessage(), e);
+						try {
+							Thread.sleep(2000);
+						} catch (InterruptedException e) {
+							logger.warn(e.getMessage(), e);
+						}
 					}
 				}
 			};
@@ -289,90 +299,146 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 	@Override
 	public TreeConfigAttribute getAttribute(TreeConfigPath path, String attributeName) {
-		TreeConfigAttribute attribute = localManager.getAttribute(path, attributeName);
-		if(attribute == null && remoteManager != null){
-			attribute = remoteManager.getAttribute(path, attributeName);
-			if(attribute != null){
-				localManager.saveAttribute(path, attribute);
+		try{
+			synchronized (writeLock) {
+				// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+				currentReaderCount.incrementAndGet();
 			}
+			TreeConfigAttribute attribute = localManager.getAttribute(path, attributeName);
+			if(attribute == null && remoteManager != null){
+				attribute = remoteManager.getAttribute(path, attributeName);
+				if(attribute != null){
+					localManager.saveAttribute(path, attribute);
+				}
+			}
+			return attribute;
+		} finally {
+			currentReaderCount.decrementAndGet();
 		}
-		return attribute;
 	}
 
 	@Override
 	public Serializable getAttributeValue(TreeConfigPath path, String attributeName) {
-		Serializable value = localManager.getAttributeValue(path, attributeName);
-		if(value == null && remoteManager != null){
-			value = remoteManager.getAttributeValue(path, attributeName);
-			if(value != null){
-				localManager.saveAttributeValue(path, attributeName, value);
+		try{
+			synchronized (writeLock) {
+				// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+				currentReaderCount.incrementAndGet();
 			}
+			Serializable value = localManager.getAttributeValue(path, attributeName);
+			if(value == null && remoteManager != null){
+				value = remoteManager.getAttributeValue(path, attributeName);
+				if(value != null){
+					localManager.saveAttributeValue(path, attributeName, value);
+				}
+			}
+			return value;
+		} finally {
+			currentReaderCount.decrementAndGet();
 		}
-		return value;
 	}
 
 	@Override
 	public List<TreeConfigNode> getChildren(TreeConfigPath path) {
-		List<TreeConfigNode> children = localManager.getChildren(path);
-		if(children.size() == 0 && remoteManager != null){
-			children = remoteManager.getChildren(path);
-			if(children.size() > 0 ){
-				localManager.saveNodes(children, true);
+		try{
+			synchronized (writeLock) {
+				// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+				currentReaderCount.incrementAndGet();
 			}
+			List<TreeConfigNode> children = localManager.getChildren(path);
+			if(children.size() == 0 && remoteManager != null){
+				children = remoteManager.getChildren(path);
+				if(children.size() > 0 ){
+					localManager.saveNodes(children, true);
+				}
+			}
+			return children;
+		} finally {
+			currentReaderCount.decrementAndGet();
 		}
-		return children;
 	}
 
 	@Override
 	public TreeConfigNode getNode(TreeConfigPath path) {
-		TreeConfigNode node = localManager.getNode(path);
-		if(node == null && remoteManager != null){
-			node = remoteManager.getNode(path);
-			if(node != null){
-				localManager.saveNode(node, true);
+		try{
+			synchronized (writeLock) {
+				// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+				currentReaderCount.incrementAndGet();
 			}
+			TreeConfigNode node = localManager.getNode(path);
+			if(node == null && remoteManager != null){
+				node = remoteManager.getNode(path);
+				if(node != null){
+					localManager.saveNode(node, true);
+				}
+			}
+			return node;
+		} finally {
+			currentReaderCount.decrementAndGet();
 		}
-		return node;
 	}
 
 	@Override
 	public Serializable getNodeValue(TreeConfigPath path) {
-		Serializable value = localManager.getNodeValue(path);
-		if(value == null && remoteManager != null){
-			value = remoteManager.getNodeValue(path);
-			if(value != null){
-				localManager.saveNodeValue(path, value);
+		try{
+			synchronized (writeLock) {
+				// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+				currentReaderCount.incrementAndGet();
 			}
+			Serializable value = localManager.getNodeValue(path);
+			if(value == null && remoteManager != null){
+				value = remoteManager.getNodeValue(path);
+				if(value != null){
+					localManager.saveNodeValue(path, value);
+				}
+			}
+			return value;
+		} finally {
+			currentReaderCount.decrementAndGet();
 		}
-		return value;
 	}
 
 	@Override
 	public boolean isAttributesExist(TreeConfigPath path, String... attributeNames) {
-		boolean exist = localManager.isAttributesExist(path, attributeNames);
-		if (!exist && remoteManager != null) {
-			exist = remoteManager.isAttributesExist(path, attributeNames);
-			if(exist){
-				for (String attributeName : attributeNames) {
-					TreeConfigAttribute attribute = remoteManager.getAttribute(path, attributeName);
-					localManager.saveAttribute(path, attribute);
+		try{
+			synchronized (writeLock) {
+				// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+				currentReaderCount.incrementAndGet();
+			}
+			boolean exist = localManager.isAttributesExist(path, attributeNames);
+			if (!exist && remoteManager != null) {
+				exist = remoteManager.isAttributesExist(path, attributeNames);
+				if(exist){
+					for (String attributeName : attributeNames) {
+						TreeConfigAttribute attribute = remoteManager.getAttribute(path, attributeName);
+						localManager.saveAttribute(path, attribute);
+					}
 				}
 			}
+			return exist;
+		} finally {
+			currentReaderCount.decrementAndGet();
 		}
-		return exist;
 	}
 
 	@Override
 	public boolean isNodeExist(TreeConfigPath path) {
-		boolean exist = localManager.isNodeExist(path);
-		if (!exist && remoteManager != null) {
-			exist = remoteManager.isNodeExist(path);
-			if (exist) {
-				TreeConfigNode node = remoteManager.getNode(path);
-				localManager.saveNode(node, true);
+		try{
+			synchronized (writeLock) {
+				// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+				currentReaderCount.incrementAndGet();
 			}
+			boolean exist = localManager.isNodeExist(path);
+			if (!exist && remoteManager != null) {
+				exist = remoteManager.isNodeExist(path);
+				if (exist) {
+					TreeConfigNode node = remoteManager.getNode(path);
+					localManager.saveNode(node, true);
+				}
+			}
+			return exist;
+		} finally {
+			currentReaderCount.decrementAndGet();
 		}
-		return exist;
 	}
 
 	private void addNotifyTask(String targetId, String method, Object[] args){
