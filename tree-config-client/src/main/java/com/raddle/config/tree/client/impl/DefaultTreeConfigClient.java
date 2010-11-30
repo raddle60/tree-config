@@ -555,8 +555,11 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		public void run() {
 			try {
 				// 注册客户端
-				logger.debug("register client , clientId : {}", clientId);
 				IoSession session = connector.getManagedSessions().values().iterator().next();
+				if(Boolean.TRUE.equals(session.getAttribute("initialized"))){
+					return;
+				}
+				logger.debug("register client , clientId : {}", clientId);
 				SyncCommandSender syncSender = new SyncCommandSender(session);
 				syncSender.sendCommand("treeConfigRegister", "registerClient", new Object[] { clientId }, 3);
 				// 绑定断开连接时的值
@@ -584,16 +587,19 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				} finally {
 					currentReaderCount.decrementAndGet();
 				}
+				session.setAttribute("initialized" , Boolean.TRUE);
 			} catch (Throwable e) {
 				logger.error(e.getMessage(), e);
-				try {
-					Thread.sleep(10 * 1000);
-				} catch (InterruptedException e1) {
-					logger.warn(e1.getMessage(), e1);
-				}
 				if(connector.getManagedSessionCount() > 0) {
-					// 执行失败后10秒后继续执行
-					taskExecutor.execute(new SyncTask());
+					try {
+						Thread.sleep(10 * 1000);
+					} catch (InterruptedException e1) {
+						logger.warn(e1.getMessage(), e1);
+					}
+					if(connector.getManagedSessionCount() > 0) {
+						// 执行失败后10秒后继续执行
+						taskExecutor.execute(new SyncTask());
+					}
 				}
 			}
 		}
