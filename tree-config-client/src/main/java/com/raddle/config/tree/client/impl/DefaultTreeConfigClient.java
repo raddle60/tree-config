@@ -591,8 +591,10 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				} catch (InterruptedException e1) {
 					logger.warn(e1.getMessage(), e1);
 				}
-				// 执行失败后10秒后继续执行
-				taskExecutor.execute(new SyncTask());
+				if(connector.getManagedSessionCount() > 0) {
+					// 执行失败后10秒后继续执行
+					taskExecutor.execute(new SyncTask());
+				}
 			}
 		}
 
