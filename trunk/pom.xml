@@ -14,6 +14,7 @@
     <module>tree-config-api</module>
     <module>tree-config-common</module>
     <module>tree-config-local</module>
+    <module>tree-config-remote</module>
     <module>tree-config-client</module>
     <module>tree-config-server</module>
   </modules>
