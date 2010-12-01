@@ -54,13 +54,31 @@ public class TreeUtils {
 		}
 	}
 	
-	public static boolean isPathEquals(TreeConfigPath path1, TreeConfigPath path2){
-		// TODO
-		return false;
+	public static boolean isPathEquals(TreeConfigPath path1, TreeConfigPath path2) {
+		String[] pathArray1 = path1.getPath();
+		String[] pathArray2 = path2.getPath();
+		if (pathArray1.length != pathArray2.length) {
+			return false;
+		}
+		for (int i = 0; i < pathArray1.length; i++) {
+			if (!pathArray1[i].equals(pathArray2[i])) {
+				return false;
+			}
+		}
+		return true;
 	}
 	
-	public static boolean isEqualOrDescendant(TreeConfigPath path1, TreeConfigPath path2){
-		// TODO
-		return false;
+	public static boolean isEqualOrDescendant(TreeConfigPath path1, TreeConfigPath path2) {
+		String[] pathArray1 = path1.getPath();
+		String[] pathArray2 = path2.getPath();
+		if (pathArray1.length > pathArray2.length) {
+			return false;
+		}
+		for (int i = 0; i < pathArray1.length; i++) {
+			if (!pathArray1[i].equals(pathArray2[i])) {
+				return false;
+			}
+		}
+		return true;
 	}
 }
