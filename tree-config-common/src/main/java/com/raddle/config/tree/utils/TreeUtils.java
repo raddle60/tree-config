@@ -9,6 +9,7 @@ import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigNode;
+import com.raddle.config.tree.api.TreeConfigPath;
 
 /**
  * @author xurong
@@ -20,7 +21,7 @@ public class TreeUtils {
 	 * @param nodes
 	 * @return root节点
 	 */
-	public DefaultConfigNode toTree(List<TreeConfigNode> nodes){
+	public static DefaultConfigNode toTree(List<TreeConfigNode> nodes){
 		DefaultConfigNode root = new DefaultConfigNode();
 		for (TreeConfigNode treeConfigNode : nodes) {
 			saveNode(root, treeConfigNode);
@@ -28,7 +29,7 @@ public class TreeUtils {
 		return root;
 	}
 	
-	private void saveNode(DefaultConfigNode root ,TreeConfigNode node) {
+	private static void saveNode(DefaultConfigNode root ,TreeConfigNode node) {
 		DefaultConfigNode current = null;
 		DefaultConfigNode parent = root;
 		// 创建带层次的节点
@@ -51,5 +52,15 @@ public class TreeUtils {
 		for (TreeConfigAttribute attribute : node.getAttributes()) {
 			current.setAttributeValue(attribute.getName(), attribute.getValue());
 		}
+	}
+	
+	public static boolean isPathEquals(TreeConfigPath path1, TreeConfigPath path2){
+		// TODO
+		return false;
+	}
+	
+	public static boolean isEqualOrDescendant(TreeConfigPath path1, TreeConfigPath path2){
+		// TODO
+		return false;
 	}
 }

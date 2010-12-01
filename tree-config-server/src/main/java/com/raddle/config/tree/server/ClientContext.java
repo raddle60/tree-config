@@ -12,6 +12,8 @@ import org.apache.mina.core.session.IoSession;
 
 import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.DefaultUpdateNode;
+import com.raddle.config.tree.api.TreeConfigPath;
+import com.raddle.config.tree.utils.TreeUtils;
 
 /**
  * @author xurong
@@ -24,7 +26,7 @@ public class ClientContext {
 	private Set<DefaultUpdateNode> disconnectedValues = new HashSet<DefaultUpdateNode>();
 	private Deque<NotifyClientTask> notifyTasks = new LinkedList<NotifyClientTask>();
 	private IoSession session;
-
+	
 	public ClientContext(String clientId) {
 		this.clientId = clientId;
 	}
@@ -32,6 +34,23 @@ public class ClientContext {
 	public ClientContext(String clientId, IoSession session) {
 		this.clientId = clientId;
 		this.session = session;
+	}
+	
+	public boolean isAcceptable(TreeConfigPath path){
+		boolean acceptable = false;
+		for (DefaultNodeSelector nodeSelector : selectors) {
+			if(nodeSelector.getPath() == null){
+				return true;
+			} else if(nodeSelector.isRecursive()){
+				acceptable = TreeUtils.isEqualOrDescendant(nodeSelector.getPath(), path);
+			} else {
+				acceptable = TreeUtils.isPathEquals(nodeSelector.getPath(), path);
+			}
+			if(acceptable){
+				return true;
+			}
+		}
+		return acceptable;
 	}
 
 	public String getClientId() {
