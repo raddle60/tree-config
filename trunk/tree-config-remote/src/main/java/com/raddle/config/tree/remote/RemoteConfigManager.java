@@ -86,6 +86,12 @@ public class RemoteConfigManager implements TreeConfigManager {
 	}
 
 	@Override
+	@SuppressWarnings("unchecked")
+	public List<TreeConfigNode> getDescendants(TreeConfigPath path) {
+		return (List<TreeConfigNode>) sendCommand("getDescendants", new Object[] { path });
+	}
+	
+	@Override
 	public TreeConfigNode getNode(TreeConfigPath path) {
 		return (TreeConfigNode) sendCommand("getNode", new Object[] { path });
 	}
@@ -112,4 +118,5 @@ public class RemoteConfigManager implements TreeConfigManager {
 	public void setTimeoutSeconds(int timeoutSeconds) {
 		this.timeoutSeconds = timeoutSeconds;
 	}
+
 }
