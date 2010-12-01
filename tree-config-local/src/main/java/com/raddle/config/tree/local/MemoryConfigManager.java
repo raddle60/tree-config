@@ -206,7 +206,10 @@ public class MemoryConfigManager implements TreeConfigManager {
 		} else {
 			DefaultConfigNode node = (DefaultConfigNode) getNodeByPath(path, false);
 			if (node != null) {
-				putDescendants(node, descendants);
+				Map<String, DefaultConfigNode> children = node.getChildren();
+				for (DefaultConfigNode treeConfigNode : children.values()) {
+					putDescendants(treeConfigNode, descendants);
+				}
 			}
 		}
 		return descendants;
