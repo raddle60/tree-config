@@ -71,7 +71,7 @@ public class DefaultTreeConfigServer {
 
 	public void start() {
 		long startAt = System.currentTimeMillis();
-		logger.info("tree configuartion server starting ...");
+		logger.info("server starting ...");
 		// 调用远程方法，等待响应返回
 		logger.info("setting invoke timeout {} seconds ", invokeTimeoutSeconds);
 		// 读空闲10分钟
@@ -197,7 +197,7 @@ public class DefaultTreeConfigServer {
 		logger.info("binding on port {}", port);
 		try {
 			acceptor.bind(new InetSocketAddress(port));
-			logger.info("tree configuartion server listening on {}", port);
+			logger.info("server listening on {}", port);
 			logger.info("starting task executor");
 			taskExecutor = new ThreadPoolExecutor(0, 10, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
 			logger.info("starting updating notify thread");
@@ -254,7 +254,7 @@ public class DefaultTreeConfigServer {
 			notifyThread.start();
 			logger.info("server start completed in {}ms " , System.currentTimeMillis() - startAt);
 		} catch (IOException e) {
-			logger.error("tree configuartion start failed .", e);
+			logger.error("server start failed .", e);
 		}
 	}
 
