@@ -6,6 +6,7 @@ package com.raddle.config.tree.local;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
@@ -194,4 +195,27 @@ public class MemoryConfigManager implements TreeConfigManager {
 		return current;
 	}
 
+	@Override
+	public List<TreeConfigNode> getDescendants(TreeConfigPath path) {
+		List<TreeConfigNode> descendants = new ArrayList<TreeConfigNode>();
+		if (path == null) {
+			Map<String, DefaultConfigNode> children = root.getChildren();
+			for (DefaultConfigNode treeConfigNode : children.values()) {
+				putDescendants(treeConfigNode, descendants);
+			}
+		} else {
+			DefaultConfigNode node = (DefaultConfigNode) getNodeByPath(path, false);
+			if (node != null) {
+				putDescendants(node, descendants);
+			}
+		}
+		return descendants;
+	}
+	
+	private void putDescendants(DefaultConfigNode parent, List<TreeConfigNode> descendants) {
+		descendants.add(parent);
+		for (DefaultConfigNode treeConfigNode : parent.getChildren().values()) {
+			putDescendants(treeConfigNode, descendants);
+		}
+	}
 }

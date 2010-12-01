@@ -365,6 +365,26 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			currentReaderCount.decrementAndGet();
 		}
 	}
+	
+	@Override
+	public List<TreeConfigNode> getDescendants(TreeConfigPath path) {
+		try{
+			synchronized (writeLock) {
+				// 防止和server通知并发，在server通知过程中，不做get，get操作也可能有更新操作
+				currentReaderCount.incrementAndGet();
+			}
+			List<TreeConfigNode> descendants = localManager.getDescendants(path);
+			if(descendants.size() == 0 && remoteManager != null){
+				descendants = remoteManager.getDescendants(path);
+				if(descendants.size() > 0 ){
+					localManager.saveNodes(descendants, true);
+				}
+			}
+			return descendants;
+		} finally {
+			currentReaderCount.decrementAndGet();
+		}
+	}
 
 	@Override
 	public TreeConfigNode getNode(TreeConfigPath path) {

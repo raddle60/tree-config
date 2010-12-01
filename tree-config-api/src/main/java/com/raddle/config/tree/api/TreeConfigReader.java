@@ -42,11 +42,18 @@ public interface TreeConfigReader {
 	public Serializable getAttributeValue(TreeConfigPath path, String attributeName);
 
 	/**
-	 * 获得子节点
+	 * 获得子节点，只包括本节点的子节点，不包括子节点的子节点
 	 * @param path 节点路径,传null获得第一级的节点
 	 * @return 不存在返回空List
 	 */
 	public List<TreeConfigNode> getChildren(TreeConfigPath path);
+	
+	/**
+	 * 获得子孙节点，包括子节点的子节点，直到末节点
+	 * @param path 节点路径,传null获得第一级的节点
+	 * @return 不存在返回空List
+	 */
+	public List<TreeConfigNode> getDescendants(TreeConfigPath path);
 	
 	/**
 	 * 判断节点是否存在
