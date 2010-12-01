@@ -22,7 +22,7 @@ public class TreeConfigClientMain {
 			@Override
 			public void sessionConnected(IoSession session) {
 				// 获得当前链接的ip地址，每次连接可能会变，所以每次都设置
-				configPath.setSplitPath("tree-config/client/" + ((InetSocketAddress) session.getLocalAddress()).getAddress().getHostAddress());
+				configPath.setSplitPath("testing/client/" + ((InetSocketAddress) session.getLocalAddress()).getAddress().getHostAddress());
 				if (!init.value) {
 					// 只初始化一次
 					DefaultConfigNode clientNode = new DefaultConfigNode();
@@ -36,7 +36,7 @@ public class TreeConfigClientMain {
 					disconnectedNode.setAttributeValue("isConnected", false);
 					client.bindDisconnectedNode(disconnectedNode, false);
 					// ///////////////////////
-					client.bindInitialPushNodes(null, true);
+					client.bindInitialGetNodes(null, true);
 				}
 			}
 
