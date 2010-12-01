@@ -188,7 +188,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 					while (true) {
 						InvokeCommand command = null;
 						synchronized (notifyTask) {
-							if(notifyTask.size() > 0){
+							while(notifyTask.size() > 0){
 								command = notifyTask.pollFirst();
 								try {
 									InvokeUtils.invokeMethod(remoteManager, command.getMethod(), command.getArgs());
@@ -199,18 +199,14 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 									// 失败了放回队列头，重新发送。
 									notifyTask.addFirst(command);
 									// 失败了10秒以后再试
-									try {
-										Thread.sleep(1000 * 10);
-									} catch (InterruptedException e1) {
-										logger.warn(e1.getMessage(), e1);
-									}
+									break;
 								}
-							} else {
-								try {
-									notifyTask.wait();
-								} catch (InterruptedException e) {
-									logger.warn(e.getMessage(), e);
-								}
+							}
+							try {
+								// 失败了10秒以后再试
+								notifyTask.wait(1000 * 10);
+							} catch (InterruptedException e) {
+								logger.warn(e.getMessage(), e);
 							}
 						}
 					}
@@ -474,6 +470,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		command.setMethod(method);
 		command.setArgs(args);
 		notifyTask.addLast(command);
+		synchronized (notifyTask) {
+			notifyTask.notify();
+		}
 	}
 	
 	public TreeConfigManager getLocalManager() {
