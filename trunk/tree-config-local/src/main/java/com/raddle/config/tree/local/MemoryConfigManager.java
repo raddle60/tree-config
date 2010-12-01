@@ -11,6 +11,7 @@ import java.util.Map;
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
+import com.raddle.config.tree.api.TreeConfigListener;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.api.TreeConfigPath;
@@ -21,13 +22,16 @@ import com.raddle.config.tree.api.TreeConfigPath;
  */
 public class MemoryConfigManager implements TreeConfigManager {
 	private DefaultConfigNode root = new DefaultConfigNode();
+	private TreeConfigListener listener = new TreeConfigListenerAdapter();
 
 	@Override
 	public void removeAttributes(TreeConfigPath path, String... attributeNames) {
 		TreeConfigNode n = getNodeByPath(path, false);
 		if(n != null){
 			for (String attributeName : attributeNames) {
+				TreeConfigAttribute old = n.getAttribute(attributeName);
 				n.removeAttribute(attributeName);
+				listener.attributeRemoved(n, old);
 			}
 		}
 	}
@@ -38,12 +42,16 @@ public class MemoryConfigManager implements TreeConfigManager {
 		if(n != null){
 			if(n.getChildren().size() > 0){
 				if(recursive){
+					DefaultConfigNode old = n.getParent().getChild(n.getNodePath().getLast());
 					n.getParent().removeChild(n.getNodePath().getLast());
+					listener.nodeRemoved(old);
 				} else {
 					return false;
 				}
 			} else {
+				DefaultConfigNode old = n.getParent().getChild(n.getNodePath().getLast());
 				n.getParent().removeChild(n.getNodePath().getLast());
+				listener.nodeRemoved(old);
 			}
 		}
 		return false;
@@ -64,13 +72,17 @@ public class MemoryConfigManager implements TreeConfigManager {
 	@Override
 	public void saveAttribute(TreeConfigPath path, TreeConfigAttribute attribute) {
 		TreeConfigNode n = getNodeByPath(path, true);
+		Serializable oldValue = n.getAttributeValue(attribute.getName());
 		n.setAttributeValue(attribute.getName(), attribute.getValue());
+		listener.attributeValueChanged(n, n.getAttribute(attribute.getName()), attribute.getValue(), oldValue);
 	}
 
 	@Override
 	public void saveAttributeValue(TreeConfigPath path, String attributeName, Serializable value) {
 		TreeConfigNode n = getNodeByPath(path, true);
+		Serializable oldValue = n.getAttributeValue(attributeName);
 		n.setAttributeValue(attributeName, value);
+		listener.attributeValueChanged(n, n.getAttribute(attributeName), value, oldValue);
 	}
 
 	@Override
@@ -78,12 +90,16 @@ public class MemoryConfigManager implements TreeConfigManager {
 		TreeConfigNode n = getNodeByPath(node.getNodePath(), true);
 		// 如果节点已存在
 		if (updateNodeValue) {
+			Serializable oldValue = n.getValue();
 			// 更新节点值
 			n.setValue(node.getValue());
+			listener.nodeValueChanged(n, n.getValue(), oldValue);
 		} else {
 			// 更新属性值
 			for (TreeConfigAttribute attribute : node.getAttributes()) {
+				Serializable oldValue = n.getAttributeValue(attribute.getName());
 				n.setAttributeValue(attribute.getName(), attribute.getValue());
+				listener.attributeValueChanged(node, n.getAttribute(attribute.getName()), attribute.getValue(), oldValue);
 			}
 		}
 	}
@@ -91,7 +107,9 @@ public class MemoryConfigManager implements TreeConfigManager {
 	@Override
 	public void saveNodeValue(TreeConfigPath path, Serializable value) {
 		TreeConfigNode n = getNodeByPath(path, true);
+		Serializable oldValue = n.getValue();
 		n.setValue(value);
+		listener.nodeValueChanged(n, n.getValue(), oldValue);
 	}
 
 	@Override
