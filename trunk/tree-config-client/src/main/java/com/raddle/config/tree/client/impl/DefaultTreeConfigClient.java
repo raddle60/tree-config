@@ -190,29 +190,27 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 						synchronized (notifyTask) {
 							if(notifyTask.size() > 0){
 								command = notifyTask.pollFirst();
+								try {
+									InvokeUtils.invokeMethod(remoteManager, command.getMethod(), command.getArgs());
+								} catch (RemoteExecuteException e) {
+									// 远端的异常，忽略
+								} catch (Exception e) {
+									logger.error(e.getMessage(), e);
+									// 失败了放回队列头，重新发送。
+									notifyTask.addFirst(command);
+									// 失败了10秒以后再试
+									try {
+										Thread.sleep(1000 * 10);
+									} catch (InterruptedException e1) {
+										logger.warn(e1.getMessage(), e1);
+									}
+								}
 							} else {
 								try {
 									notifyTask.wait();
 								} catch (InterruptedException e) {
 									logger.warn(e.getMessage(), e);
 								}
-							}
-						}
-						try {
-							InvokeUtils.invokeMethod(remoteManager, command.getMethod(), command.getArgs());
-						} catch (RemoteExecuteException e) {
-							// 远端的异常，忽略
-						} catch (Exception e) {
-							logger.error(e.getMessage(), e);
-							// 失败了放回队列头，重新发送。
-							// 不能在这循环发送，因为连接断开后任务会被清空，这个失败的任务也会被清除
-							// 在这循环将无法被清除
-							notifyTask.addFirst(command);
-							// 失败了10秒以后再试
-							try {
-								Thread.sleep(1000);
-							} catch (InterruptedException e1) {
-								logger.warn(e1.getMessage(), e1);
 							}
 						}
 					}
