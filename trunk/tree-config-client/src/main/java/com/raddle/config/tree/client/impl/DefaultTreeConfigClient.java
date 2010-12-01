@@ -595,53 +595,23 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		}
 
 		private void putPushNodes(TreeConfigPath path, boolean recursive, List<TreeConfigNode> pushNodes) {
-			if(path == null){
-				if(recursive){
-					List<TreeConfigNode> children = localManager.getChildren(path);
-					for (TreeConfigNode treeConfigNode : children) {
-						putPushNodes(treeConfigNode.getNodePath(), recursive, pushNodes);
-					}
-				}
-			} else {
-				TreeConfigNode node = localManager.getNode(path);
-				if (node != null) {
-					pushNodes.add(node);
-					if(recursive){
-						List<TreeConfigNode> children = localManager.getChildren(node.getNodePath());
-						for (TreeConfigNode treeConfigNode : children) {
-							putPushNodes(treeConfigNode.getNodePath(), recursive, pushNodes);
-						}
-					}
+			TreeConfigNode node = localManager.getNode(path);
+			if (node != null) {
+				pushNodes.add(node);
+				if (recursive) {
+					List<TreeConfigNode> descendants = localManager.getDescendants(path);
+					pushNodes.addAll(descendants);
 				}
 			}
 		}
 
 		private void freshNode(TreeConfigPath path, boolean recursive) {
-			if(path == null){
+			TreeConfigNode node = remoteManager.getNode(path);
+			if (node != null) {
+				localManager.saveNode(node, true);
 				if (recursive) {
-					List<TreeConfigNode> children = remoteManager.getChildren(path);
-					freshNodes(children, recursive);
-				}
-			} else {
-				TreeConfigNode parent = remoteManager.getNode(path);
-				if (parent != null) {
-					localManager.saveNode(parent, true);
-					if (recursive) {
-						List<TreeConfigNode> children = remoteManager.getChildren(path);
-						freshNodes(children, recursive);
-					}
-				}
-			}
-		}
-		
-		private void freshNodes(List<TreeConfigNode> nodes, boolean recursive) {
-			if(nodes.size() > 0){
-				localManager.saveNodes(nodes, true);
-				if (recursive) {
-					for (TreeConfigNode treeConfigNode : nodes) {
-						List<TreeConfigNode> children = remoteManager.getChildren(treeConfigNode.getNodePath());
-						freshNodes(children , recursive);
-					}
+					List<TreeConfigNode> descendants = remoteManager.getDescendants(path);
+					localManager.saveNodes(descendants, true);
 				}
 			}
 		}
