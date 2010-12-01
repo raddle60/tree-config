@@ -172,7 +172,7 @@ public class DefaultTreeConfigServer {
 					while(true){
 						for (final String clientId : clientMap.keySet()) {
 							final ClientContext clientContext = clientMap.get(clientId);
-							if(clientContext.getNotifyTasks().size() > 0){
+							if(clientContext != null && clientContext.getNotifyTasks().size() > 0){
 								taskExecutor.execute(new Runnable() {
 									@Override
 									public void run() {
@@ -181,20 +181,23 @@ public class DefaultTreeConfigServer {
 										if (session != null && session.isConnected()) {
 											NotifyClientTask notifyClientTask = null;
 											SyncCommandSender sender = new SyncCommandSender(session);
-											try {
-												for (NotifyClientTask task : clientContext.getNotifyTasks()) {
-													notifyClientTask = task;
-													try {
-														sender.sendCommand(NOTIFY_CLIENT_TARGET_ID, task.getMethod(), task.getArgs(), invokeTimeoutSeconds);
-													} catch (RemoteExecuteException e) {
-														// 远端的异常，忽略
+											// 同步，防止并发执行同一个队列的任务
+											synchronized (clientContext) {
+												try {
+													while (clientContext.getNotifyTasks().size() > 0) {
+															notifyClientTask = clientContext.getNotifyTasks().pollFirst();
+														}
+														try {
+															sender.sendCommand(NOTIFY_CLIENT_TARGET_ID, notifyClientTask.getMethod(), notifyClientTask.getArgs(), invokeTimeoutSeconds);
+														} catch (RemoteExecuteException e) {
+															// 远端的异常，忽略
+														}
+												} catch (Exception e) {
+													logger.error(e.getMessage(), e);
+													// 重新放回队列，等待下次执行
+													if(notifyClientTask != null){
+														clientContext.getNotifyTasks().addFirst(notifyClientTask);
 													}
-												}
-											} catch (Exception e) {
-												logger.error(e.getMessage(), e);
-												// 重新放回队列，等待下次执行
-												if(notifyClientTask != null){
-													clientContext.getNotifyTasks().addFirst(notifyClientTask);
 												}
 											}
 										}
