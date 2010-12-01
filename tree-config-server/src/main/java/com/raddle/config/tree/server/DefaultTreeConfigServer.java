@@ -4,19 +4,25 @@
 package com.raddle.config.tree.server;
 
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.ObjectUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.mina.core.service.IoAcceptor;
 import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.core.session.IoSession;
@@ -25,6 +31,8 @@ import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.raddle.config.tree.DefaultConfigNode;
+import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.DefaultUpdateNode;
 import com.raddle.config.tree.api.TreeConfigAttribute;
@@ -55,7 +63,9 @@ public class DefaultTreeConfigServer {
 	private IoAcceptor acceptor = new NioSocketAcceptor();
 	private TreeConfigManager localManager = new MemoryConfigManager();
 	private int port = 9877;
-	private ExecutorService taskExecutor = null;
+	private int maxTaskThreads = 10;
+	private int failedResendSeconds = 10;
+	private ThreadPoolExecutor taskExecutor = null;
 	private Map<String, ClientContext> clientMap = new Hashtable<String, ClientContext>();
 	private Object notifyWaiting = new Object();
 	static {
@@ -179,6 +189,12 @@ public class DefaultTreeConfigServer {
 						addNotifyTask(session, "saveNode", new Object[]{updateNode.getNode(), updateNode.isUpdateNodeValue()});
 					}
 				}
+				// 更新客户端连接数
+				DefaultConfigNode serverStateNode = new DefaultConfigNode();
+				serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
+				serverStateNode.setAttributeValue("客户端连接数", acceptor.getManagedSessionCount());
+				localManager.saveNode(serverStateNode, false);
+				addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
 			}
 
 			@Override
@@ -191,61 +207,93 @@ public class DefaultTreeConfigServer {
 			@Override
 			public void sessionCreated(IoSession session) throws Exception {
 				logger.debug("Session created , remote address [{}] .", session.getRemoteAddress());
+				// 更新客户端连接数
+				DefaultConfigNode serverStateNode = new DefaultConfigNode();
+				serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
+				serverStateNode.setAttributeValue("客户端连接数", acceptor.getManagedSessionCount());
+				localManager.saveNode(serverStateNode, false);
+				addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
 			}
 
 		});
+		logger.info("initialize local configuration");
+		DefaultConfigNode serverConfigNode = new DefaultConfigNode();
+		serverConfigNode.setNodePath(new DefaultConfigPath("/树形配置服务器/设置"));
+		serverConfigNode.setAttributeValue("IP地址", getLocalHostIps());
+		serverConfigNode.setAttributeValue("监听端口号", port);
+		serverConfigNode.setAttributeValue("读超时时间", readerIdleSeconds+"秒");
+		serverConfigNode.setAttributeValue("远程调用超时时间", invokeTimeoutSeconds+"秒");
+		serverConfigNode.setAttributeValue("本地配置类", localManager.getClass().getName());
+		serverConfigNode.setAttributeValue("最大任务线程", maxTaskThreads);
+		serverConfigNode.setAttributeValue("通知失败重试间隔", failedResendSeconds + "秒");
+		localManager.saveNode(serverConfigNode, false);
+		DefaultConfigNode serverStateNode = new DefaultConfigNode();
+		serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
+		serverStateNode.setAttributeValue("任务执行状态（当前/总数）", "0/0");
+		serverStateNode.setAttributeValue("客户端连接数", 0);
+		localManager.saveNode(serverStateNode, false);
 		logger.info("binding on port {}", port);
 		try {
 			acceptor.bind(new InetSocketAddress(port));
 			logger.info("server listening on {}", port);
 			logger.info("starting task executor");
-			taskExecutor = new ThreadPoolExecutor(0, 10, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+			taskExecutor = new ThreadPoolExecutor(0, maxTaskThreads, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
 			logger.info("starting updating notify thread");
 			Thread notifyThread = new Thread(){
 				@Override
 				public void run() {
 					while(true){
-						for (final String clientId : clientMap.keySet()) {
-							final ClientContext clientContext = clientMap.get(clientId);
-							if(clientContext != null && clientContext.getNotifyTasks().size() > 0){
-								taskExecutor.execute(new Runnable() {
-									@Override
-									public void run() {
-										IoSession session = clientContext.getSession();
-										// 需要判断，可能已经关闭
-										if (session != null && session.isConnected()) {
-											NotifyClientTask notifyClientTask = null;
-											SyncCommandSender sender = new SyncCommandSender(session);
-											// 同步，防止并发执行同一个队列的任务
-											synchronized (clientContext) {
-												try {
-													while (clientContext.getNotifyTasks().size() > 0) {
-															notifyClientTask = clientContext.getNotifyTasks().pollFirst();
+						try {
+							for (final String clientId : clientMap.keySet()) {
+								final ClientContext clientContext = clientMap.get(clientId);
+								if(clientContext != null && clientContext.getNotifyTasks().size() > 0){
+									taskExecutor.execute(new Runnable() {
+										@Override
+										public void run() {
+											IoSession session = clientContext.getSession();
+											// 需要判断，可能已经关闭
+											if (session != null && session.isConnected()) {
+												NotifyClientTask notifyClientTask = null;
+												SyncCommandSender sender = new SyncCommandSender(session);
+												// 同步，防止并发执行同一个队列的任务
+												synchronized (clientContext) {
+													try {
+														while (clientContext.getNotifyTasks().size() > 0) {
+																notifyClientTask = clientContext.getNotifyTasks().pollFirst();
+															}
+															try {
+																sender.sendCommand(NOTIFY_CLIENT_TARGET_ID, notifyClientTask.getMethod(), notifyClientTask.getArgs(), invokeTimeoutSeconds);
+															} catch (RemoteExecuteException e) {
+																// 远端的异常，忽略
+															}
+													} catch (Exception e) {
+														logger.error(e.getMessage(), e);
+														// 重新放回队列，等待下次执行
+														if(notifyClientTask != null){
+															clientContext.getNotifyTasks().addFirst(notifyClientTask);
 														}
-														try {
-															sender.sendCommand(NOTIFY_CLIENT_TARGET_ID, notifyClientTask.getMethod(), notifyClientTask.getArgs(), invokeTimeoutSeconds);
-														} catch (RemoteExecuteException e) {
-															// 远端的异常，忽略
-														}
-												} catch (Exception e) {
-													logger.error(e.getMessage(), e);
-													// 重新放回队列，等待下次执行
-													if(notifyClientTask != null){
-														clientContext.getNotifyTasks().addFirst(notifyClientTask);
 													}
 												}
 											}
 										}
-									}
-								});
+									});
+								}
 							}
-						}
-						synchronized (notifyWaiting) {
-							try {
-								notifyWaiting.wait(10 * 1000);
-							} catch (InterruptedException e) {
-								logger.error(e.getMessage(), e);
+							synchronized (notifyWaiting) {
+								try {
+									notifyWaiting.wait(failedResendSeconds * 1000);
+								} catch (InterruptedException e) {
+									logger.error(e.getMessage(), e);
+								}
 							}
+							// 更新客户端连接数
+							DefaultConfigNode serverStateNode = new DefaultConfigNode();
+							serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
+							serverStateNode.setAttributeValue("任务执行状态（当前/总数）", taskExecutor.getActiveCount() + "/" + taskExecutor.getTaskCount());
+							localManager.saveNode(serverStateNode, false);
+							addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
+						} catch (Exception e) {
+							logger.error(e.getMessage(), e);
 						}
 					}
 				}
@@ -264,19 +312,19 @@ public class DefaultTreeConfigServer {
 		ClientContext clientContext = new ClientContext(clientId, CommandContext.getIoSession());
 		clientMap.put(clientId, clientContext);
 	}
-	
+
 	public void bindDisconnectedValue(TreeConfigNode node, boolean updatedNodeValue) {
 		logger.debug("bind disconnected value , remote address [{}]", CommandContext.getIoSession().getRemoteAddress());
 		String clientId = (String) CommandContext.getIoSession().getAttribute(ATTR_KEY_CLIENT_ID);
 		clientMap.get(clientId).getDisconnectedValues().add(new DefaultUpdateNode(node, updatedNodeValue));
 	}
-	
+
 	public void bindlisteningNodes(List<DefaultNodeSelector> listeningNodes) {
 		logger.debug("bind listening nodes , remote address [{}]", CommandContext.getIoSession().getRemoteAddress());
 		String clientId = (String) CommandContext.getIoSession().getAttribute(ATTR_KEY_CLIENT_ID);
 		clientMap.get(clientId).getSelectors().addAll(listeningNodes);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	private void addNotifyTask(IoSession curSession, String method, Object[] args) {
 		for (final String clientId : clientMap.keySet()) {
@@ -284,7 +332,7 @@ public class DefaultTreeConfigServer {
 			if (curSession == null || !clientId.equals(curSession.getAttribute(ATTR_KEY_CLIENT_ID))) {
 				// 加入通知队列
 				ClientContext clientContext = clientMap.get(clientId);
-				if(clientContext != null){
+				if (clientContext != null) {
 					boolean acceptable = false;
 					// 检查是否接收通知
 					if (args[0] instanceof TreeConfigPath) {
@@ -313,7 +361,7 @@ public class DefaultTreeConfigServer {
 			notifyWaiting.notify();
 		}
 	}
-	
+
 	public void shutdown() {
 		long startAt = System.currentTimeMillis();
 		if (taskExecutor != null) {
@@ -327,6 +375,29 @@ public class DefaultTreeConfigServer {
 		logger.info("shutdown server completed in {}ms ", System.currentTimeMillis() - startAt);
 	}
 
+	private static String getLocalHostIps() {
+		List<String> ips = new ArrayList<String>();
+		Enumeration<NetworkInterface> allNetInterfaces = null;
+		try {
+			allNetInterfaces = NetworkInterface.getNetworkInterfaces();
+		} catch (SocketException e) {
+			throw new RuntimeException(e.getMessage(), e);
+		}
+		while (allNetInterfaces.hasMoreElements()) {
+			NetworkInterface netInterface = (NetworkInterface) allNetInterfaces.nextElement();
+			Enumeration<InetAddress> addresses = netInterface.getInetAddresses();
+			while (addresses.hasMoreElements()) {
+				InetAddress inetAddress = addresses.nextElement();
+				if (inetAddress != null && inetAddress instanceof Inet4Address) {
+					String ip = inetAddress.getHostAddress();
+					if (ip != null && !ip.equals("127.0.0.1")) {
+						ips.add(ip);
+					}
+				}
+			}
+		}
+		return StringUtils.join(ips, ", ");
+	}
 	public int getPort() {
 		return port;
 	}

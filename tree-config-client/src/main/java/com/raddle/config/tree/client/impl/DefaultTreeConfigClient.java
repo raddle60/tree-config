@@ -580,13 +580,13 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				session.setAttribute("initialized" , Boolean.TRUE);
 			} catch (Throwable e) {
 				logger.error(e.getMessage(), e);
-				if(connector.getManagedSessionCount() > 0) {
+				if(connector != null && connector.getManagedSessionCount() > 0) {
 					try {
 						Thread.sleep(10 * 1000);
 					} catch (InterruptedException e1) {
 						logger.warn(e1.getMessage(), e1);
 					}
-					if(connector.getManagedSessionCount() > 0) {
+					if(connector != null && connector.getManagedSessionCount() > 0) {
 						// 执行失败后10秒后继续执行
 						taskExecutor.execute(new SyncTask());
 					}
@@ -606,12 +606,19 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		}
 
 		private void freshNode(TreeConfigPath path, boolean recursive) {
-			TreeConfigNode node = remoteManager.getNode(path);
-			if (node != null) {
-				localManager.saveNode(node, true);
-				if (recursive) {
+			if(path == null){
+				if(recursive){
 					List<TreeConfigNode> descendants = remoteManager.getDescendants(path);
 					localManager.saveNodes(descendants, true);
+				}
+			} else {
+				TreeConfigNode node = remoteManager.getNode(path);
+				if (node != null) {
+					localManager.saveNode(node, true);
+					if (recursive) {
+						List<TreeConfigNode> descendants = remoteManager.getDescendants(path);
+						localManager.saveNodes(descendants, true);
+					}
 				}
 			}
 		}

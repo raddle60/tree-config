@@ -38,7 +38,7 @@ public class InvokeUtils {
 				Class<?> targetClass = target.getClass();
 				Method targetMethod = null;
 				for (Method publicMethod : targetClass.getMethods()) {
-					if (publicMethod.getName().equals(publicMethod)) {
+					if (publicMethod.getName().equals(method)) {
 						targetMethod = publicMethod;
 						break;
 					}
