@@ -55,6 +55,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private String serverIp;
 	private int serverPort;
 	private long connectTimeoutMs = 3000;
+	private int invokeTimeoutSeconds = 5;
 	private AtomicInteger currentReaderCount = new AtomicInteger(0);
 	private Object writeLock = new Object();
 	private TreeConfigManager localManager = new MemoryConfigManager();
@@ -135,7 +136,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				@Override
 				public void sessionCreated(IoSession session) throws Exception {
 					logger.debug("Session created , remote address [{}] .", session.getRemoteAddress());
-					remoteManager = new RemoteConfigManager(session);
+					RemoteConfigManager remoteConfigManager = new RemoteConfigManager(session);
+					remoteConfigManager.setTimeoutSeconds(invokeTimeoutSeconds);
+					remoteManager = remoteConfigManager;
 					localAddress = session.getLocalAddress();
 					if(listener != null){
 						listener.sessionConnected(session);
@@ -645,6 +648,14 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 	public void setListener(TreeConfigClientListener listener) {
 		this.listener = listener;
+	}
+
+	public int getInvokeTimeoutSeconds() {
+		return invokeTimeoutSeconds;
+	}
+
+	public void setInvokeTimeoutSeconds(int invokeTimeoutSeconds) {
+		this.invokeTimeoutSeconds = invokeTimeoutSeconds;
 	};
 
 }

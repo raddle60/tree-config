@@ -91,7 +91,7 @@ public class DefaultTreeConfigServer {
 							// 更新操作需要同步，保证执行顺序,先到先执行
 							// 对于同一个client发过来的，能保证是按调用顺序执行
 							// 由于client调用都有超时限制，所以不能执行时间太长，可以用队列的方式执行
-							// 本地的执行非常快，直接执行
+							// 本地的执行相对较快，直接执行
 							result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 							// 增加通知任务
 							addNotifyTask(CommandContext.getIoSession(), methodInvoke.getMethod(), methodInvoke.getArgs());
