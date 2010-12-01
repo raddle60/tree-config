@@ -29,6 +29,7 @@ import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.DefaultUpdateNode;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
+import com.raddle.config.tree.api.TreeConfigPath;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
@@ -92,21 +93,8 @@ public class DefaultTreeConfigServer {
 							// 由于client调用都有超时限制，所以不能执行时间太长，可以用队列的方式执行
 							// 本地的执行非常快，直接执行
 							result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
-							// 通知通过网络，所以异步执行
-							for (final String clientId : clientMap.keySet()) {
-								// 发送者不用通知
-								if (!clientId.equals(CommandContext.getIoSession().getAttribute(ATTR_KEY_CLIENT_ID))) {
-									// 加入通知队列
-									ClientContext clientContext = clientMap.get(clientId);
-									if(clientContext != null){
-										clientContext.getNotifyTasks().addLast(new NotifyClientTask(clientId, methodInvoke.getMethod(), methodInvoke.getArgs()));
-									}
-								}
-							}
-							// 立即执行通知
-							synchronized (notifyWaiting) {
-								notifyWaiting.notify();
-							}
+							// 增加通知任务
+							addNotifyTask(CommandContext.getIoSession(), methodInvoke.getMethod(), methodInvoke.getArgs());
 						}
 					} else {
 						// 读操作直接执行
@@ -143,7 +131,14 @@ public class DefaultTreeConfigServer {
 			public void sessionClosed(IoSession session) throws Exception {
 				logger.debug("Session closed , remote address [{}], clientId [{}] .", session.getRemoteAddress(), session
 						.getAttribute(ATTR_KEY_CLIENT_ID));
+				ClientContext clientContext = clientMap.get(session.getAttribute(ATTR_KEY_CLIENT_ID));
 				clientMap.remove(session.getAttribute(ATTR_KEY_CLIENT_ID));
+				if(clientContext != null && clientContext.getDisconnectedValues().size() > 0){
+					// 通知断开以后的值
+					for (DefaultUpdateNode updateNode : clientContext.getDisconnectedValues()) {
+						addNotifyTask(session, "saveNode", new Object[]{updateNode.getNode(), updateNode.isUpdateNodeValue()});
+					}
+				}
 			}
 
 			@Override
@@ -241,7 +236,44 @@ public class DefaultTreeConfigServer {
 		String clientId = (String) CommandContext.getIoSession().getAttribute(ATTR_KEY_CLIENT_ID);
 		clientMap.get(clientId).getSelectors().addAll(listeningNodes);
 	}
-
+	
+	@SuppressWarnings("unchecked")
+	private void addNotifyTask(IoSession curSession, String method, Object[] args) {
+		for (final String clientId : clientMap.keySet()) {
+			// 发送者不用通知
+			if (!clientId.equals(curSession.getAttribute(ATTR_KEY_CLIENT_ID))) {
+				// 加入通知队列
+				ClientContext clientContext = clientMap.get(clientId);
+				if(clientContext != null){
+					boolean acceptable = false;
+					// 检查是否接收通知
+					if (args[0] instanceof TreeConfigPath) {
+						TreeConfigPath path = (TreeConfigPath) args[0];
+						acceptable = clientContext.isAcceptable(path);
+					} else if (args[0] instanceof TreeConfigNode) {
+						TreeConfigNode node = (TreeConfigNode) args[0];
+						acceptable = clientContext.isAcceptable(node.getNodePath());
+					} else if (args[0] instanceof List) {
+						List<TreeConfigNode> nodes = (List<TreeConfigNode>) args[0];
+						for (TreeConfigNode treeConfigNode : nodes) {
+							if (clientContext.isAcceptable(treeConfigNode.getNodePath())) {
+								acceptable = true;
+								break;
+							}
+						}
+					}
+					if (acceptable) {
+						clientContext.getNotifyTasks().addLast(new NotifyClientTask(clientId, method, args));
+					}
+				}
+			}
+		}
+		// 立即执行通知
+		synchronized (notifyWaiting) {
+			notifyWaiting.notify();
+		}
+	}
+	
 	public void shutdown() {
 		long startAt = System.currentTimeMillis();
 		if (taskExecutor != null) {
@@ -287,4 +319,5 @@ public class DefaultTreeConfigServer {
 	public void setLocalManager(TreeConfigManager localManager) {
 		this.localManager = localManager;
 	}
+
 }
