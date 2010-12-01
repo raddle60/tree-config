@@ -466,7 +466,12 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			currentReaderCount.decrementAndGet();
 		}
 	}
-
+	
+	@Override
+	public boolean isConnected() {
+		return remoteManager != null;
+	};
+	
 	private void addNotifyTask(String targetId, String method, Object[] args){
 		InvokeCommand command = new InvokeCommand();
 		command.setTargetId(targetId);
@@ -663,6 +668,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 	public void setInvokeTimeoutSeconds(int invokeTimeoutSeconds) {
 		this.invokeTimeoutSeconds = invokeTimeoutSeconds;
-	};
+	}
 
 }

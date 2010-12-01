@@ -31,6 +31,12 @@ public interface TreeConfigClient extends TreeConfigManager {
 	public void bindInitialGetNodes(TreeConfigPath path , boolean recursive);
 	
 	/**
+	 * 是否已连接
+	 * @return
+	 */
+	public boolean isConnected();
+	
+	/**
 	 * 断开和服务器的连接
 	 */
 	public void close();
