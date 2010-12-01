@@ -31,7 +31,7 @@ public interface TreeConfigListener {
 	 * @param newValue
 	 * @param oldValue
 	 */
-	public void AttributeValueChanged(TreeConfigNode node, TreeConfigAttribute attribute, Serializable newValue, Serializable oldValue);
+	public void attributeValueChanged(TreeConfigNode node, TreeConfigAttribute attribute, Serializable newValue, Serializable oldValue);
 
 	/**
 	 * 属性删除
