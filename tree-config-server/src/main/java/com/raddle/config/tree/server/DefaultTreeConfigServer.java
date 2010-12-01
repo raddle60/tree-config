@@ -8,6 +8,7 @@ import java.net.InetSocketAddress;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.lang.ObjectUtils;
 import org.apache.mina.core.service.IoAcceptor;
 import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.core.session.IoSession;
@@ -27,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.DefaultUpdateNode;
+import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.api.TreeConfigPath;
@@ -83,6 +86,7 @@ public class DefaultTreeConfigServer {
 		acceptor.setHandler(new AbstractInvokeCommandHandler() {
 
 			@Override
+			@SuppressWarnings("unchecked")
 			protected Object invokeMethod(final MethodInvoke methodInvoke) throws Exception {
 				Object result = null;
 				if ("treeConfigManager".equals(methodInvoke.getTargetId())) {
@@ -90,7 +94,22 @@ public class DefaultTreeConfigServer {
 						synchronized (CommandContext.getIoSession()) {
 							// 更新操作需要同步，保证执行顺序,先到先执行
 							// 对于同一个client发过来的，能保证是按调用顺序执行
-							// 由于client调用都有超时限制，所以不能执行时间太长，可以用队列的方式执行
+							if ("saveNodes".equals(methodInvoke.getMethod())) {
+								// 可能节点很多，需要检查是否有变化，客户端在断开重连时，会重发一遍，这时就不应该通知
+								List<TreeConfigNode> nodes = (List<TreeConfigNode>) methodInvoke.getArgs()[0];
+								Boolean updateNodeValue = (Boolean) methodInvoke.getArgs()[1];
+								for (Iterator<TreeConfigNode> iterator = nodes.iterator(); iterator.hasNext();) {
+									TreeConfigNode newNode = (TreeConfigNode) iterator.next();
+									if(!isNodeHasChange(newNode, updateNodeValue)){
+										// 沒有变化的不更新
+										iterator.remove();
+									}
+								}
+								if(nodes.size() == 0){
+									// 沒有变化不用执行后续操作
+									return null;
+								}
+							}
 							// 本地的执行相对较快，直接执行
 							result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 							// 增加通知任务
@@ -106,6 +125,30 @@ public class DefaultTreeConfigServer {
 				return result;
 			}
 
+			private boolean isNodeHasChange(TreeConfigNode newNode, Boolean updateNodeValue) {
+				TreeConfigNode localNode = localManager.getNode(newNode.getNodePath());
+				boolean hasChanged = false;
+				if (localNode != null) {
+					if (updateNodeValue) {
+						// 比较节点值
+						if (!ObjectUtils.equals(localNode.getValue(), newNode.getValue())) {
+							return true;
+						}
+					}
+					if (!hasChanged && newNode.getAttributes() != null) {
+						// 比较属性值
+						for (TreeConfigAttribute attribute : newNode.getAttributes()) {
+							if (!ObjectUtils.equals(localNode.getAttributeValue(attribute.getName()), attribute.getValue())) {
+								return true;
+							}
+						}
+					}
+					return false;
+				} else {
+					return true;
+				}
+			}
+
 			@Override
 			protected Object getObject(String id) {
 				if ("treeConfigManager".equals(id)) {
@@ -119,7 +162,7 @@ public class DefaultTreeConfigServer {
 				}
 				return localManager;
 			}
-
+			
 			@Override
 			public void exceptionCaught(IoSession session, Throwable cause) throws Exception {
 				logger.error("Session exception , remote address [" + session.getRemoteAddress() + "] , clientId ["
@@ -241,7 +284,7 @@ public class DefaultTreeConfigServer {
 	private void addNotifyTask(IoSession curSession, String method, Object[] args) {
 		for (final String clientId : clientMap.keySet()) {
 			// 发送者不用通知
-			if (!clientId.equals(curSession.getAttribute(ATTR_KEY_CLIENT_ID))) {
+			if (curSession == null || !clientId.equals(curSession.getAttribute(ATTR_KEY_CLIENT_ID))) {
 				// 加入通知队列
 				ClientContext clientContext = clientMap.get(clientId);
 				if(clientContext != null){
