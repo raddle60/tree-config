@@ -3,13 +3,16 @@
  */
 package com.raddle.config.tree;
 
+import java.io.Serializable;
+
 import com.raddle.config.tree.api.TreeConfigNode;
 
 /**
  * @author xurong
  *
  */
-public class DefaultUpdateNode {
+public class DefaultUpdateNode implements Serializable {
+	private static final long serialVersionUID = 1L;
 	private TreeConfigNode node;
 	private boolean updateNodeValue;
 
