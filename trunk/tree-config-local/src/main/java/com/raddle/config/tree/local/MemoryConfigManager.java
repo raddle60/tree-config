@@ -11,6 +11,7 @@ import java.util.Map;
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
+import com.raddle.config.tree.api.TreeConfigListenable;
 import com.raddle.config.tree.api.TreeConfigListener;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
@@ -20,7 +21,7 @@ import com.raddle.config.tree.api.TreeConfigPath;
  * @author xurong
  *
  */
-public class MemoryConfigManager implements TreeConfigManager {
+public class MemoryConfigManager implements TreeConfigManager,TreeConfigListenable {
 	private DefaultConfigNode root = new DefaultConfigNode();
 	private TreeConfigListener listener = new TreeConfigListenerAdapter();
 
@@ -238,5 +239,10 @@ public class MemoryConfigManager implements TreeConfigManager {
 		for (DefaultConfigNode treeConfigNode : parent.getChildren().values()) {
 			putDescendants(treeConfigNode, descendants);
 		}
+	}
+	
+	@Override
+	public void setTreeConfigListener(TreeConfigListener listener) {
+		this.listener = listener;
 	}
 }
