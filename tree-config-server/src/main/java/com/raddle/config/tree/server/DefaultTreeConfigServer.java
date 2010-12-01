@@ -5,11 +5,9 @@ package com.raddle.config.tree.server;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,7 +56,6 @@ public class DefaultTreeConfigServer {
 	private TreeConfigManager localManager = new MemoryConfigManager();
 	private int port = 9877;
 	private ExecutorService taskExecutor = null;
-	private Deque<NotifyClientTask> notifyFailedTasks = new LinkedList<NotifyClientTask>();
 	private Map<String, ClientContext> clientMap = new Hashtable<String, ClientContext>();
 	private Object notifyWaiting = new Object();
 	static {
@@ -327,7 +324,6 @@ public class DefaultTreeConfigServer {
 		acceptor.unbind();
 		acceptor.dispose();
 		clientMap.clear();
-		notifyFailedTasks.clear();
 		logger.info("shutdown server completed in {}ms ", System.currentTimeMillis() - startAt);
 	}
 
