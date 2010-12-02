@@ -95,13 +95,12 @@ public class MemoryConfigManager implements TreeConfigManager,TreeConfigListenab
 			// 更新节点值
 			n.setValue(node.getValue());
 			listener.nodeValueChanged(n, n.getValue(), oldValue);
-		} else {
-			// 更新属性值
-			for (TreeConfigAttribute attribute : node.getAttributes()) {
-				Serializable oldValue = n.getAttributeValue(attribute.getName());
-				n.setAttributeValue(attribute.getName(), attribute.getValue());
-				listener.attributeValueChanged(node, n.getAttribute(attribute.getName()), attribute.getValue(), oldValue);
-			}
+		} 
+		// 更新属性值
+		for (TreeConfigAttribute attribute : node.getAttributes()) {
+			Serializable oldValue = n.getAttributeValue(attribute.getName());
+			n.setAttributeValue(attribute.getName(), attribute.getValue());
+			listener.attributeValueChanged(node, n.getAttribute(attribute.getName()), attribute.getValue(), oldValue);
 		}
 	}
 
