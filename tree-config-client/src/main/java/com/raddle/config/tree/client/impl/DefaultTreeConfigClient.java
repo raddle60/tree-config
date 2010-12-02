@@ -102,11 +102,11 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 					}
 					synchronized (writeLock) {
 						// 等待所有读操作结束
-						// 不能等待，会导致后续接收事件无法触发
-//						while (currentReaderCount.get() > 0) {
-//							logger.debug("reader count:{} , method:{}",currentReaderCount.get(), methodInvoke.getMethod());
-//							Thread.sleep(100);
-//						}
+						// TODO 等待太多会导致后续接收事件无法触发
+						while (currentReaderCount.get() > 0) {
+							logger.debug("reader count:{} , method:{}",currentReaderCount.get(), methodInvoke.getMethod());
+							Thread.sleep(100);
+						}
 						result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 					}
 					logger.debug("invoke returned , target:{} , method {} , return {}" , new Object[]{methodInvoke.getTarget().getClass(), methodInvoke.getMethod(),result == null?"null":"not null"});
