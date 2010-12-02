@@ -95,16 +95,22 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			connector.setHandler(new AbstractInvokeCommandHandler() {
 				@Override
 				protected Object invokeMethod(MethodInvoke methodInvoke) throws Exception {
+					logger.debug("invoke received , target:{} , method {}" , methodInvoke.getTarget().getClass(), methodInvoke.getMethod());
+					Object result = null;
 					if(listener != null){
 						listener.commandReceived(methodInvoke);
 					}
 					synchronized (writeLock) {
 						// 等待所有读操作结束
-						while (currentReaderCount.get() > 0) {
-							Thread.sleep(50);
-						}
-						return InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
+						// 不能等待，会导致后续接收事件无法触发
+//						while (currentReaderCount.get() > 0) {
+//							logger.debug("reader count:{} , method:{}",currentReaderCount.get(), methodInvoke.getMethod());
+//							Thread.sleep(100);
+//						}
+						result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 					}
+					logger.debug("invoke returned , target:{} , method {} , return {}" , new Object[]{methodInvoke.getTarget().getClass(), methodInvoke.getMethod(),result == null?"null":"not null"});
+					return result;
 				}
 
 				@Override

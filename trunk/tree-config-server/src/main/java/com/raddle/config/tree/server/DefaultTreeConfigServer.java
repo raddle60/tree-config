@@ -95,6 +95,7 @@ public class DefaultTreeConfigServer {
 			@Override
 			@SuppressWarnings("unchecked")
 			protected Object invokeMethod(final MethodInvoke methodInvoke) throws Exception {
+				logger.debug("invoke received , target:{} , method {}" , methodInvoke.getTarget().getClass(), methodInvoke.getMethod());
 				Object result = null;
 				if ("treeConfigManager".equals(methodInvoke.getTargetId())) {
 					if (updateMethodSet.contains(methodInvoke.getMethod())) {
@@ -129,6 +130,7 @@ public class DefaultTreeConfigServer {
 				} else {
 					result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
 				}
+				logger.debug("invoke returned , target:{} , method {} , return {}" , new Object[]{methodInvoke.getTarget().getClass(), methodInvoke.getMethod(),result == null?"null":"not null"});
 				return result;
 			}
 
@@ -179,13 +181,14 @@ public class DefaultTreeConfigServer {
 
 			@Override
 			public void sessionClosed(IoSession session) throws Exception {
-				logger.debug("Session closed , remote address [{}], clientId [{}] .", session.getRemoteAddress(), session
-						.getAttribute(ATTR_KEY_CLIENT_ID));
+				logger.debug("Session closed , remote address [{}], clientId [{}], sessions [{}].", new Object[]{session.getRemoteAddress(), session
+						.getAttribute(ATTR_KEY_CLIENT_ID), acceptor.getManagedSessionCount()});
 				ClientContext clientContext = clientMap.get(session.getAttribute(ATTR_KEY_CLIENT_ID));
 				clientMap.remove(session.getAttribute(ATTR_KEY_CLIENT_ID));
 				if(clientContext != null && clientContext.getDisconnectedValues().size() > 0){
 					// 通知断开以后的值
 					for (DefaultUpdateNode updateNode : clientContext.getDisconnectedValues()) {
+						localManager.saveNode(updateNode.getNode(), updateNode.isUpdateNodeValue());
 						addNotifyTask(session, "saveNode", new Object[]{updateNode.getNode(), updateNode.isUpdateNodeValue()});
 					}
 				}
@@ -206,7 +209,7 @@ public class DefaultTreeConfigServer {
 
 			@Override
 			public void sessionCreated(IoSession session) throws Exception {
-				logger.debug("Session created , remote address [{}] .", session.getRemoteAddress());
+				logger.debug("Session created , remote address [{}], sessions [{}] .", session.getRemoteAddress(), acceptor.getManagedSessionCount());
 				// 更新客户端连接数
 				DefaultConfigNode serverStateNode = new DefaultConfigNode();
 				serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
@@ -289,7 +292,7 @@ public class DefaultTreeConfigServer {
 							// 更新客户端连接数
 							DefaultConfigNode serverStateNode = new DefaultConfigNode();
 							serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
-							serverStateNode.setAttributeValue("任务执行状态（当前/总数）", taskExecutor.getActiveCount() + "/" + taskExecutor.getTaskCount());
+							serverStateNode.setAttributeValue("任务执行状态（当前/总数）", taskExecutor.getActiveCount() + "/" + (taskExecutor.getActiveCount() + taskExecutor.getQueue().size()));
 							localManager.saveNode(serverStateNode, false);
 							addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
 						} catch (Exception e) {

@@ -5,6 +5,8 @@ package com.raddle.config.tree.remote;
 
 import org.apache.mina.core.session.IoSession;
 import org.omg.CORBA.BooleanHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.remote.exception.ResponseTimeoutException;
@@ -18,6 +20,7 @@ import com.raddle.nio.mina.cmd.invoke.InvokeCommand;
  * 
  */
 public class SyncCommandSender {
+	private static final Logger logger = LoggerFactory.getLogger(SyncCommandSender.class);
 	private CommandSender commandSender;
 
 	public SyncCommandSender(IoSession session) {
@@ -25,6 +28,7 @@ public class SyncCommandSender {
 	}
 
 	public Object sendCommand(String targetId, String method, Object[] args, final int timeoutSeconds) throws RemoteExecuteException, ResponseTimeoutException{
+		logger.debug("send command target:{} , method:{}" , targetId, method);
 		final ObjectHolder ret = new ObjectHolder();
 		final ObjectHolder exception = new ObjectHolder();
 		final BooleanHolder isTimeout = new BooleanHolder(false);
@@ -65,17 +69,21 @@ public class SyncCommandSender {
 			try {
 				ret.wait(timeoutSeconds * 1000 + 500);
 			} catch (InterruptedException e) {
+				logger.debug("waiting result for command target:{} , method:{} interrupted" , targetId, method);
 				throw new ResponseTimeoutException(e.getMessage(), e);
 			}
 		}
 		// 调用异常
 		if (exception.getValue() != null) {
 			if(isTimeout.value){
+				logger.debug("receive command target:{} , method:{} timeout" , targetId, method);
 				throw new ResponseTimeoutException(exception.getValue() + "");
 			} else {
+				logger.debug("execute command target:{} , method:{} , client has exception" , targetId, method);
 				throw new RemoteExecuteException(exception.getValue() + "");
 			}
 		}
+		logger.debug("execute command target:{} , method:{} successed , return {}" , new Object[]{targetId, method, ret.getValue() == null?"null":"not null"});
 		return ret.getValue();
 	}
 
