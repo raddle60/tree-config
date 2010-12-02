@@ -235,7 +235,7 @@ public class MemoryConfigManager implements TreeConfigManager,TreeConfigListenab
 	}
 	
 	private void putDescendants(DefaultConfigNode parent, List<TreeConfigNode> descendants) {
-		descendants.add(parent);
+		descendants.add(parent.toSelfOnly());
 		for (DefaultConfigNode treeConfigNode : parent.getChildren().values()) {
 			putDescendants(treeConfigNode, descendants);
 		}
