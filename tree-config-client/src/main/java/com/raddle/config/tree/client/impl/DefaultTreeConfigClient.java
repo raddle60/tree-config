@@ -38,9 +38,9 @@ import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.RemoteConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
+import com.raddle.config.tree.remote.utils.RemoteUtils;
 import com.raddle.config.tree.utils.ExceptionUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
-import com.raddle.nio.mina.cmd.SessionCommandSender;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
 import com.raddle.nio.mina.cmd.invoke.InvokeCommand;
 import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
@@ -185,7 +185,16 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			}
 			logger.info("ping server per {} seconds" , pingSeconds);
 			pingSchedule = Executors.newScheduledThreadPool(1);
-			pingSchedule.scheduleWithFixedDelay(new PingTask(), pingSeconds, pingSeconds, TimeUnit.SECONDS);
+			pingSchedule.scheduleWithFixedDelay(new Runnable() {
+				
+				@Override
+				public void run() {
+					if(connector.getManagedSessionCount() > 0){
+						IoSession session = connector.getManagedSessions().values().iterator().next();
+						RemoteUtils.pingAndCloseIfFailed(session);
+					}
+				}
+			}, pingSeconds, pingSeconds, TimeUnit.SECONDS);
 			// 保持连接
 			logger.info("starting reconnect thread");
 			Thread checkConnectionThread = new Thread(){
@@ -653,23 +662,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 						localManager.saveNodes(descendants, true);
 					}
 				}
-			}
-		}
-	}
-	
-	class PingTask implements Runnable {
-		
-		@Override
-		public void run() {
-			try {
-				logger.debug("ping server");
-				if (connector.getManagedSessionCount() > 0) {
-					IoSession session = connector.getManagedSessions().values().iterator().next();
-					SessionCommandSender sender = new SessionCommandSender(session);
-					sender.sendCommand("ping");
-				}
-			} catch (Throwable e) {
-				logger.error(e.getMessage(), e);
 			}
 		}
 	}
