@@ -18,6 +18,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +45,7 @@ import com.raddle.config.tree.api.TreeConfigPath;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
+import com.raddle.config.tree.remote.utils.RemoteUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.config.tree.utils.TreeUtils;
@@ -69,6 +72,8 @@ public class DefaultTreeConfigServer {
 	private int maxTaskThreads = 10;
 	private int failedResendSeconds = 10;
 	private ThreadPoolExecutor taskExecutor = null;
+	private int pingSeconds = 60;
+	private ScheduledExecutorService pingSchedule = null;
 	private Map<String, ClientContext> clientMap = new Hashtable<String, ClientContext>();
 	private Object notifyWaiting = new Object();
 	static {
@@ -313,6 +318,25 @@ public class DefaultTreeConfigServer {
 			};
 			notifyThread.setDaemon(true);
 			notifyThread.start();
+			logger.info("ping client per {} seconds" , pingSeconds);
+			pingSchedule = Executors.newScheduledThreadPool(1);
+			pingSchedule.scheduleWithFixedDelay(new Runnable() {
+
+				@Override
+				public void run() {
+					for (String clientId : clientMap.keySet()) {
+						final ClientContext clientContext = clientMap.get(clientId);
+						if (clientContext != null) {
+							taskExecutor.execute(new Runnable() {
+								@Override
+								public void run() {
+									RemoteUtils.pingAndCloseIfFailed(clientContext.getSession());
+								}
+							});
+						}
+					}
+				}
+			}, pingSeconds, pingSeconds, TimeUnit.SECONDS);
 			logger.info("server start completed in {}ms " , System.currentTimeMillis() - startAt);
 		} catch (IOException e) {
 			logger.error("server start failed .", e);
@@ -380,6 +404,10 @@ public class DefaultTreeConfigServer {
 
 	public void shutdown() {
 		long startAt = System.currentTimeMillis();
+		if(pingSchedule != null){
+			logger.info("shuting down ping schedule");
+			pingSchedule.shutdown();
+		}
 		if (taskExecutor != null) {
 			logger.info("shuting down task executor");
 			taskExecutor.shutdown();
@@ -444,6 +472,14 @@ public class DefaultTreeConfigServer {
 
 	public void setLocalManager(TreeConfigManager localManager) {
 		this.localManager = localManager;
+	}
+
+	public int getPingSeconds() {
+		return pingSeconds;
+	}
+
+	public void setPingSeconds(int pingSeconds) {
+		this.pingSeconds = pingSeconds;
 	}
 
 }
