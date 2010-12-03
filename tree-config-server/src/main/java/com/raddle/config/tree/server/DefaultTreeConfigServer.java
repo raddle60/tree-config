@@ -58,7 +58,7 @@ public class DefaultTreeConfigServer {
 	private static final String NOTIFY_CLIENT_TARGET_ID = "treeConfigManager";
 	private static final String ATTR_KEY_CLIENT_ID = "client_id";
 	private static final Set<String> updateMethodSet = new HashSet<String>();
-	private int invokeTimeoutSeconds = 5;
+	private int invokeTimeoutSeconds = 10;
 	private int readerIdleSeconds = 60 * 30;
 	private IoAcceptor acceptor = new NioSocketAcceptor();
 	private TreeConfigManager localManager = new MemoryConfigManager();
@@ -216,6 +216,12 @@ public class DefaultTreeConfigServer {
 				serverStateNode.setAttributeValue("客户端连接数", acceptor.getManagedSessionCount());
 				localManager.saveNode(serverStateNode, false);
 				addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
+			}
+
+			@Override
+			protected String getCommandQueue(MethodInvoke methodInvoke) {
+				// 全部操作并发执行
+				return null;
 			}
 
 		});
