@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.remote.exception.ResponseTimeoutException;
+import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.nio.mina.cmd.SessionCommandSender;
 import com.raddle.nio.mina.cmd.api.CommandCallback;
 import com.raddle.nio.mina.cmd.api.CommandSender;
@@ -27,8 +28,10 @@ public class SyncCommandSender {
 		this.commandSender = new SessionCommandSender(session);
 	}
 
-	public Object sendCommand(String targetId, String method, Object[] args, final int timeoutSeconds) throws RemoteExecuteException, ResponseTimeoutException{
-		logger.debug("send command target:{} , method:{}" , targetId, method);
+	public Object sendCommand(String targetId, String method, Object[] args, final int timeoutSeconds) throws RemoteExecuteException, ResponseTimeoutException {
+		if (logger.isDebugEnabled()) {
+			logger.debug("send command target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
+		}
 		final ObjectHolder ret = new ObjectHolder();
 		final ObjectHolder exception = new ObjectHolder();
 		final BooleanHolder isTimeout = new BooleanHolder(false);
@@ -69,21 +72,29 @@ public class SyncCommandSender {
 			try {
 				ret.wait(timeoutSeconds * 1000 + 500);
 			} catch (InterruptedException e) {
-				logger.debug("waiting result for command target:{} , method:{} interrupted" , targetId, method);
+				if (logger.isDebugEnabled()) {
+					logger.debug("waiting result for command interrupted , target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
+				}
 				throw new ResponseTimeoutException(e.getMessage(), e);
 			}
 		}
 		// 调用异常
 		if (exception.getValue() != null) {
 			if(isTimeout.value){
-				logger.debug("receive command target:{} , method:{} timeout" , targetId, method);
+				if (logger.isDebugEnabled()) {
+					logger.debug("receive command timeout, target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
+				}
 				throw new ResponseTimeoutException(exception.getValue() + "");
 			} else {
-				logger.debug("execute command target:{} , method:{} , client has exception" , targetId, method);
+				if (logger.isDebugEnabled()) {
+					logger.debug("execute command has client exception ,target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
+				}
 				throw new RemoteExecuteException(exception.getValue() + "");
 			}
 		}
-		logger.debug("execute command target:{} , method:{} successed , return {}" , new Object[]{targetId, method, ret.getValue() == null?"null":"not null"});
+		if (logger.isDebugEnabled()) {
+			logger.debug("execute command successed, target:{} , method:{} , args :{} , return {}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args), ReflectToStringBuilder.reflectToString(ret.getValue())});
+		}
 		return ret.getValue();
 	}
 

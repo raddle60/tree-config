@@ -43,6 +43,7 @@ import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.utils.InvokeUtils;
+import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.nio.mina.cmd.CommandContext;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
 import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
@@ -268,13 +269,13 @@ public class DefaultTreeConfigServer {
 												synchronized (clientContext) {
 													try {
 														while (clientContext.getNotifyTasks().size() > 0) {
-																notifyClientTask = clientContext.getNotifyTasks().pollFirst();
-															}
+															notifyClientTask = clientContext.getNotifyTasks().pollFirst();
 															try {
 																sender.sendCommand(NOTIFY_CLIENT_TARGET_ID, notifyClientTask.getMethod(), notifyClientTask.getArgs(), invokeTimeoutSeconds);
 															} catch (RemoteExecuteException e) {
 																// 远端的异常，忽略
 															}
+														}
 													} catch (Exception e) {
 														logger.error(e.getMessage(), e);
 														// 重新放回队列，等待下次执行
@@ -283,6 +284,8 @@ public class DefaultTreeConfigServer {
 														}
 													}
 												}
+											} else {
+												logger.debug("session is closed , clientId :{}",clientId);
 											}
 										}
 									});
@@ -361,6 +364,9 @@ public class DefaultTreeConfigServer {
 					}
 					if (acceptable) {
 						clientContext.getNotifyTasks().addLast(new NotifyClientTask(clientId, method, args));
+						if (logger.isDebugEnabled()) {
+							logger.debug("added task , client:{}, method:{}, args:{}", new Object[] { clientId, method, ReflectToStringBuilder.reflectToString(args) });
+						}
 					}
 				}
 			}
