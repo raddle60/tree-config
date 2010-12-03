@@ -27,6 +27,7 @@ import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigListener;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.local.MemoryConfigManager;
+import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.config.tree.utils.TreeUtils;
 
 /**
@@ -193,7 +194,23 @@ public class SimpleTreeConfigViewer {
 		manager.setTreeConfigListener(new TreeConfigListener() {
 			
 			@Override
-			public void nodeValueChanged(TreeConfigNode node, Serializable newValue, Serializable oldValue) {
+			public void nodeValueChanged(final TreeConfigNode node, final Serializable newValue, final Serializable oldValue) {
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						prepareNode(root, node);
+						if (!ObjectUtils.equals(newValue, oldValue)) {
+							TreeConfigNode configNode = getSelectedConfigNode();
+							if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
+								nodeSelected();
+							}
+						}
+					}
+				});
+			}
+
+			private void prepareNode(final DefaultMutableTreeNode root, TreeConfigNode node) {
+				boolean hasChanged = false;
 				DefaultMutableTreeNode parent = root;
 				for (int i = 0; i < node.getNodePath().getPath().length; i++) {
 					String path = node.getNodePath().getPath()[i];
@@ -210,50 +227,68 @@ public class SimpleTreeConfigViewer {
 						DefaultMutableTreeNode child = new DefaultMutableTreeNode(path);
 						parent.add(child);
 						parent = child;
+						hasChanged = true;
 					}
 				}
-				if(!ObjectUtils.equals(newValue, oldValue)){
-					TreeConfigNode configNode = getSelectedConfigNode();
-					if(configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())){
-						nodeSelected();
-					}
+				if (hasChanged) {
+					getJTree().updateUI();
 				}
 			}
 			
 			@Override
-			public void nodeRemoved(TreeConfigNode removedNode) {
-				DefaultMutableTreeNode toRemove = root;
-				for (int i = 0; i < removedNode.getNodePath().getPath().length; i++) {
-					String path = removedNode.getNodePath().getPath()[i];
-					boolean exist = false;
-					for (int j = 0; j < toRemove.getChildCount(); j++) {
-						DefaultMutableTreeNode child = (DefaultMutableTreeNode) toRemove.getChildAt(j);
-						if (path.equals(child.getUserObject())) {
-							exist = true;
-							toRemove = child;
-							break;
+			public void nodeRemoved(final TreeConfigNode removedNode) {
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						DefaultMutableTreeNode toRemove = root;
+						for (int i = 0; i < removedNode.getNodePath().getPath().length; i++) {
+							String path = removedNode.getNodePath().getPath()[i];
+							boolean exist = false;
+							for (int j = 0; j < toRemove.getChildCount(); j++) {
+								DefaultMutableTreeNode child = (DefaultMutableTreeNode) toRemove.getChildAt(j);
+								if (path.equals(child.getUserObject())) {
+									exist = true;
+									toRemove = child;
+									break;
+								}
+							}
+							if (!exist) {
+								return;
+							}
+						}
+						toRemove.removeFromParent();
+						getJTree().updateUI();
+					}
+				});
+			}
+			
+			@Override
+			public void attributeValueChanged(final TreeConfigNode node,final TreeConfigAttribute attribute,final Serializable newValue,final Serializable oldValue) {
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						prepareNode(root, node);
+						if (!ObjectUtils.equals(newValue, oldValue)) {
+							TreeConfigNode configNode = getSelectedConfigNode();
+							if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
+								nodeSelected();
+							}
 						}
 					}
-					if (!exist) {
-						return;
-					}
-				}
-				toRemove.removeFromParent();
+				});
 			}
 			
 			@Override
-			public void attributeValueChanged(TreeConfigNode node, TreeConfigAttribute attribute, Serializable newValue, Serializable oldValue) {
-				if(!ObjectUtils.equals(newValue, oldValue)){
-					TreeConfigNode configNode = getSelectedConfigNode();
-					if(configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())){
-						nodeSelected();
+			public void attributeRemoved(final TreeConfigNode node,final TreeConfigAttribute removedAttribute) {
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						TreeConfigNode configNode = getSelectedConfigNode();
+						if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
+							nodeSelected();
+						}
 					}
-				}
-			}
-			
-			@Override
-			public void attributeRemoved(TreeConfigNode node, TreeConfigAttribute removedAttribute) {
-				
+				});
 			}
 			
 		});
@@ -268,8 +303,11 @@ public class SimpleTreeConfigViewer {
 			getJTextPane().setText("");
 		} else {
 			StringBuilder sb = new StringBuilder();
+			if(configNode.getValue() != null){
+				sb.append(ReflectToStringBuilder.reflectToString(configNode.getValue()));
+			}
 			for (TreeConfigAttribute attribute : configNode.getAttributes()) {
-				sb.append(attribute.getName()).append(" : ").append(attribute.getValue()).append("\n");
+				sb.append(attribute.getName()).append(" : ").append(ReflectToStringBuilder.reflectToString(attribute.getValue())).append("\n");
 			}
 			getJTextPane().setText(sb.toString());
 		}
