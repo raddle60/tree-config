@@ -37,7 +37,6 @@ import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.DefaultUpdateNode;
-import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.api.TreeConfigPath;
@@ -46,6 +45,7 @@ import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.config.tree.utils.ReflectToStringBuilder;
+import com.raddle.config.tree.utils.TreeUtils;
 import com.raddle.nio.mina.cmd.CommandContext;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
 import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
@@ -109,15 +109,27 @@ public class DefaultTreeConfigServer {
 								// 可能节点很多，需要检查是否有变化，客户端在断开重连时，会重发一遍，这时就不应该通知
 								List<TreeConfigNode> nodes = (List<TreeConfigNode>) methodInvoke.getArgs()[0];
 								Boolean updateNodeValue = (Boolean) methodInvoke.getArgs()[1];
+								List<TreeConfigNode> toUpdateNodes = new ArrayList<TreeConfigNode>();
 								for (Iterator<TreeConfigNode> iterator = nodes.iterator(); iterator.hasNext();) {
 									TreeConfigNode newNode = (TreeConfigNode) iterator.next();
-									if(!isNodeHasChange(newNode, updateNodeValue)){
-										// 沒有变化的不更新
-										iterator.remove();
+									TreeConfigNode toUpdateNode = TreeUtils.getToUpdateNode(newNode, localManager.getNode(newNode.getNodePath()), updateNodeValue);
+									if (toUpdateNode != null) {
+										toUpdateNodes.add(toUpdateNode);
 									}
 								}
-								if(nodes.size() == 0){
+								if (toUpdateNodes.size() == 0) {
 									// 沒有变化不用执行后续操作
+									return null;
+								} else {
+									methodInvoke.getArgs()[0] = toUpdateNodes;
+								}
+							} else if ("saveNode".equals(methodInvoke.getMethod())) {
+								TreeConfigNode newNode = (TreeConfigNode) methodInvoke.getArgs()[0];
+								Boolean updateNodeValue = (Boolean) methodInvoke.getArgs()[1];
+								TreeConfigNode toUpdateNode = TreeUtils.getToUpdateNode(newNode, localManager.getNode(newNode.getNodePath()), updateNodeValue);
+								if (toUpdateNode != null) {
+									methodInvoke.getArgs()[0] = toUpdateNode;
+								} else {
 									return null;
 								}
 							}
@@ -135,30 +147,6 @@ public class DefaultTreeConfigServer {
 				}
 				logger.debug("invoke returned , target:{} , method {} , return {}" , new Object[]{methodInvoke.getTarget().getClass(), methodInvoke.getMethod(),result == null?"null":"not null"});
 				return result;
-			}
-
-			private boolean isNodeHasChange(TreeConfigNode newNode, Boolean updateNodeValue) {
-				TreeConfigNode localNode = localManager.getNode(newNode.getNodePath());
-				boolean hasChanged = false;
-				if (localNode != null) {
-					if (updateNodeValue) {
-						// 比较节点值
-						if (!ObjectUtils.equals(localNode.getValue(), newNode.getValue())) {
-							return true;
-						}
-					}
-					if (!hasChanged && newNode.getAttributes() != null) {
-						// 比较属性值
-						for (TreeConfigAttribute attribute : newNode.getAttributes()) {
-							if (!ObjectUtils.equals(localNode.getAttributeValue(attribute.getName()), attribute.getValue())) {
-								return true;
-							}
-						}
-					}
-					return false;
-				} else {
-					return true;
-				}
 			}
 
 			@Override

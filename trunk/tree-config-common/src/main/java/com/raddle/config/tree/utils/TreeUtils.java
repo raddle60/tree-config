@@ -5,6 +5,8 @@ package com.raddle.config.tree.utils;
 
 import java.util.List;
 
+import org.apache.commons.lang.ObjectUtils;
+
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
@@ -80,5 +82,35 @@ public class TreeUtils {
 			}
 		}
 		return true;
+	}
+	
+	public static TreeConfigNode getToUpdateNode(TreeConfigNode newNode, TreeConfigNode oldNode, boolean updateNodeValue) {
+		DefaultConfigNode toUpdateNode = new DefaultConfigNode();
+		toUpdateNode.setNodePath(newNode.getNodePath());
+		toUpdateNode.setValue(newNode.getValue());
+		if (oldNode == null) {
+			for (TreeConfigAttribute attribute : newNode.getAttributes()) {
+				toUpdateNode.setAttributeValue(attribute.getName(), attribute.getValue());
+			}
+			return toUpdateNode;
+		} else {
+			boolean hasChange = false;
+			if (updateNodeValue) {
+				if (!ObjectUtils.equals(newNode.getValue(), oldNode.getValue())) {
+					hasChange = true;
+				}
+			}
+			for (TreeConfigAttribute attribute : newNode.getAttributes()) {
+				if (!ObjectUtils.equals(attribute.getValue(), oldNode.getAttributeValue(attribute.getName()))) {
+					toUpdateNode.setAttributeValue(attribute.getName(), attribute.getValue());
+					hasChange = true;
+				}
+			}
+			if (hasChange) {
+				return toUpdateNode;
+			} else {
+				return null;
+			}
+		}
 	}
 }
