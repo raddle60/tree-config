@@ -45,6 +45,7 @@ import com.raddle.config.tree.api.TreeConfigPath;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
 import com.raddle.config.tree.remote.exception.RemoteExecuteException;
+import com.raddle.config.tree.remote.utils.IpUtils;
 import com.raddle.config.tree.remote.utils.RemoteUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.config.tree.utils.ReflectToStringBuilder;
@@ -193,7 +194,17 @@ public class DefaultTreeConfigServer {
 				serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
 				serverStateNode.setAttributeValue("客户端连接数", acceptor.getManagedSessionCount());
 				localManager.saveNode(serverStateNode, false);
-				addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
+				addNotifyTask(null, "saveNode", new Object[] { serverStateNode, false });
+				///
+				DefaultConfigNode clientCount = new DefaultConfigNode();
+				clientCount.setNodePath(new DefaultConfigPath("/树形配置服务器/状态/客戶端"));
+				clientCount.setValue(acceptor.getManagedSessionCount()+"个连接");
+				localManager.saveNode(clientCount, true);
+				addNotifyTask(null, "saveNode", new Object[] { clientCount, true });
+				// 刪除客戶端
+				DefaultConfigPath clientPath = new DefaultConfigPath("/树形配置服务器/状态/客戶端/" + IpUtils.getIpAndPort(session.getRemoteAddress()));
+				localManager.removeNode(clientPath, true);
+				addNotifyTask(null, "removeNode", new Object[] { clientPath, true });
 			}
 
 			@Override
@@ -212,6 +223,18 @@ public class DefaultTreeConfigServer {
 				serverStateNode.setAttributeValue("客户端连接数", acceptor.getManagedSessionCount());
 				localManager.saveNode(serverStateNode, false);
 				addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
+				/////
+				DefaultConfigNode clientCount = new DefaultConfigNode();
+				clientCount.setNodePath(new DefaultConfigPath("/树形配置服务器/状态/客戶端"));
+				clientCount.setValue(acceptor.getManagedSessionCount()+"个连接");
+				localManager.saveNode(clientCount, true);
+				addNotifyTask(null, "saveNode", new Object[] { clientCount, true });
+				// 添加客戶端
+				DefaultConfigNode clientNode = new DefaultConfigNode();
+				clientNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态/客戶端/" + IpUtils.getIpAndPort(session.getRemoteAddress())));
+				clientNode.setAttributeValue("连接时间", DateFormatUtils.format(new Date(), "yyyy-MM-dd HH:mm:ss"));
+				localManager.saveNode(clientNode, false);
+				addNotifyTask(null, "saveNode", new Object[] { clientNode, false });
 			}
 
 			@Override
