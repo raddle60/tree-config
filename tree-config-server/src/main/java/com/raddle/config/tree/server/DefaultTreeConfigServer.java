@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -23,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.time.DateFormatUtils;
 import org.apache.mina.core.service.IoAcceptor;
 import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.core.session.IoSession;
@@ -239,6 +241,7 @@ public class DefaultTreeConfigServer {
 		localManager.saveNode(serverConfigNode, false);
 		DefaultConfigNode serverStateNode = new DefaultConfigNode();
 		serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
+		serverStateNode.setAttributeValue("启动时间", DateFormatUtils.format(new Date(), "yyyy-MM-dd HH:mm:ss"));
 		serverStateNode.setAttributeValue("任务执行状态（当前/总数）", "0/0");
 		serverStateNode.setAttributeValue("客户端连接数", 0);
 		localManager.saveNode(serverStateNode, false);
@@ -298,12 +301,22 @@ public class DefaultTreeConfigServer {
 									logger.error(e.getMessage(), e);
 								}
 							}
-							// 更新客户端连接数
+							// 更新任务执行状态
 							DefaultConfigNode serverStateNode = new DefaultConfigNode();
 							serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
-							serverStateNode.setAttributeValue("任务执行状态（当前/总数）", taskExecutor.getActiveCount() + "/" + (taskExecutor.getActiveCount() + taskExecutor.getQueue().size()));
-							localManager.saveNode(serverStateNode, false);
-							addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
+							int allTaskCount = 0;
+							for (String clientId : clientMap.keySet()) {
+								ClientContext clientContext = clientMap.get(clientId);
+								if (clientContext != null) {
+									allTaskCount += clientContext.getNotifyTasks().size();
+								}
+							}
+							String taskState = taskExecutor.getActiveCount() + "/" + allTaskCount;
+							if(!ObjectUtils.equals(taskState, localManager.getAttributeValue(new DefaultConfigPath("/树形配置服务器/状态"), "任务执行状态（当前/总数）"))){
+								serverStateNode.setAttributeValue("任务执行状态（当前/总数）", taskExecutor.getActiveCount() + "/" + allTaskCount);
+								localManager.saveNode(serverStateNode, false);
+								addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
+							}
 						} catch (Exception e) {
 							logger.error(e.getMessage(), e);
 						}
