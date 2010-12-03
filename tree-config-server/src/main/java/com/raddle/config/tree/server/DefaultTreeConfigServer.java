@@ -70,7 +70,7 @@ public class DefaultTreeConfigServer {
 	private IoAcceptor acceptor = new NioSocketAcceptor();
 	private TreeConfigManager localManager = new MemoryConfigManager();
 	private int port = 9877;
-	private int maxTaskThreads = 10;
+	private int maxTaskThreads = 50;
 	private int failedResendSeconds = 10;
 	private ThreadPoolExecutor taskExecutor = null;
 	private int pingSeconds = 60;
@@ -99,7 +99,7 @@ public class DefaultTreeConfigServer {
 		// hessain序列化
 		acceptor.getFilterChain().addLast("codec", new ProtocolCodecFilter(new HessianEncoder(), new HessianDecoder()));
 		// 方法调用
-		acceptor.setHandler(new AbstractInvokeCommandHandler() {
+		AbstractInvokeCommandHandler handler = new AbstractInvokeCommandHandler() {
 
 			@Override
 			@SuppressWarnings("unchecked")
@@ -243,7 +243,9 @@ public class DefaultTreeConfigServer {
 				return null;
 			}
 
-		});
+		};
+		handler.setMaxTaskThreads(50);
+		acceptor.setHandler(handler);
 		logger.info("initialize local configuration");
 		DefaultConfigNode serverConfigNode = new DefaultConfigNode();
 		serverConfigNode.setNodePath(new DefaultConfigPath("/树形配置服务器/设置"));
