@@ -1,7 +1,5 @@
 package com.raddle.config.tree.client;
 
-import java.net.InetSocketAddress;
-
 import org.apache.mina.core.session.IoSession;
 import org.omg.CORBA.BooleanHolder;
 
@@ -9,6 +7,7 @@ import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.client.impl.DefaultTreeConfigClient;
 import com.raddle.config.tree.client.impl.TreeConfigClientListener;
+import com.raddle.config.tree.remote.utils.IpUtils;
 import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
 
 public class TreeConfigClientMain {
@@ -22,7 +21,7 @@ public class TreeConfigClientMain {
 			@Override
 			public void sessionConnected(IoSession session) {
 				// 获得当前链接的ip地址，每次连接可能会变，所以每次都设置
-				configPath.setSplitPath("testing/client/" + ((InetSocketAddress) session.getLocalAddress()).getAddress().getHostAddress());
+				configPath.setSplitPath("testing/client/" + IpUtils.getIpAddress(session.getLocalAddress()));
 				if (!init.value) {
 					// 只初始化一次
 					DefaultConfigNode clientNode = new DefaultConfigNode();
