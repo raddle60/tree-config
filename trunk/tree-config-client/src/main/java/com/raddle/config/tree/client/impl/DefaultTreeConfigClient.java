@@ -7,8 +7,10 @@ import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,7 +57,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private String serverIp;
 	private int serverPort;
 	private long connectTimeoutMs = 3000;
-	private int invokeTimeoutSeconds = 5;
+	private int invokeTimeoutSeconds = 10;
 	private AtomicInteger currentReaderCount = new AtomicInteger(0);
 	private Object writeLock = new Object();
 	private TreeConfigManager localManager = new MemoryConfigManager();
@@ -70,6 +72,17 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private ScheduledExecutorService pingSchedule = null;
 	private int pingSeconds = 60;
 	private TreeConfigClientListener listener = null;
+	private static final Set<String> updateMethodSet = new HashSet<String>();
+	static {
+		updateMethodSet.add("saveNode");
+		updateMethodSet.add("saveNodes");
+		updateMethodSet.add("saveNodeValue");
+		updateMethodSet.add("saveAttribute");
+		updateMethodSet.add("saveAttributeValue");
+		updateMethodSet.add("removeAttributes");
+		updateMethodSet.add("removeNode");
+		updateMethodSet.add("removeNodes");
+	}
 
 	public DefaultTreeConfigClient(String clientId, String serverIp, int serverPort) {
 		this.clientId = clientId;
@@ -102,7 +115,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 					}
 					synchronized (writeLock) {
 						// 等待所有读操作结束
-						// TODO 等待太多会导致后续接收事件无法触发
 						while (currentReaderCount.get() > 0) {
 							logger.debug("reader count:{} , method:{}",currentReaderCount.get(), methodInvoke.getMethod());
 							Thread.sleep(100);
@@ -150,6 +162,16 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 						listener.sessionConnected(session);
 					}
 					taskExecutor.execute(new SyncTask());
+				}
+
+				@Override
+				protected String getCommandQueue(MethodInvoke methodInvoke) {
+					if(updateMethodSet.contains(methodInvoke.getMethod())){
+						// 所有更新操作在同一个队列中执行
+						return "update";
+					}
+					// 其他操作并发执行
+					return null;
 				}
 			});
 			logger.info("connecting to {}:{}", serverIp, serverPort);
@@ -559,7 +581,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				}
 				logger.debug("register client , clientId : {}", clientId);
 				SyncCommandSender syncSender = new SyncCommandSender(session);
-				syncSender.sendCommand("treeConfigRegister", "registerClient", new Object[] { clientId }, 3);
+				syncSender.sendCommand("treeConfigRegister", "registerClient", new Object[] { clientId }, invokeTimeoutSeconds);
 				// 绑定断开连接时的值
 				logger.debug("binding disconnected value");
 				for (UpdateNode updateNode : disconnectedNodes) {
@@ -567,14 +589,14 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				}
 				// 绑定接收通知的节点
 				logger.debug("binding listening nodes");
-				syncSender.sendCommand("treeConfigBinder", "bindlisteningNodes", new Object[] { initialGetNodes }, 3);
+				syncSender.sendCommand("treeConfigBinder", "bindlisteningNodes", new Object[] { initialGetNodes }, invokeTimeoutSeconds);
 				// 设置sever上的节点值
 				logger.debug("setting push nodes");
 				List<TreeConfigNode> pushNodes = new LinkedList<TreeConfigNode>();
 				for (DefaultNodeSelector nodePath : initialPushNodes) {
 					putPushNodes(nodePath.getPath(), nodePath.isRecursive(), pushNodes);
 				}
-				syncSender.sendCommand("treeConfigManager", "saveNodes", new Object[] { pushNodes, true }, 3);
+				syncSender.sendCommand("treeConfigManager", "saveNodes", new Object[] { pushNodes, true }, invokeTimeoutSeconds);
 				// 初始化client用到的节点
 				logger.debug("getting initial nodes");
 				try{
