@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.raddle.config.tree.client.impl;
+package com.raddle.config.tree.client.ui;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -26,7 +26,9 @@ import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigListener;
 import com.raddle.config.tree.api.TreeConfigNode;
+import com.raddle.config.tree.client.impl.DefaultTreeConfigClient;
 import com.raddle.config.tree.local.MemoryConfigManager;
+import com.raddle.config.tree.ui.ConsoleUtils;
 import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.config.tree.utils.TreeUtils;
 
@@ -81,6 +83,7 @@ public class SimpleTreeConfigViewer {
 		if (jTabbedPane == null) {
 			jTabbedPane = new JTabbedPane();
 			jTabbedPane.addTab("TreeConfig参数", null, getJSplitPane(), null);
+			jTabbedPane.addTab("控制台输出", null, getJScrollPane2(), null);
 		}
 		return jTabbedPane;
 	}
@@ -185,7 +188,10 @@ public class SimpleTreeConfigViewer {
 	}
 	private DefaultTreeConfigClient client = null;  //  @jve:decl-index=0:
 	private MemoryConfigManager manager = new MemoryConfigManager();
+	private JScrollPane jScrollPane2 = null;
+	private JTextPane jConsolePane = null;
 	private void init(){
+		ConsoleUtils.redirectConsole(getJConsolePane());
 		final DefaultMutableTreeNode root = new DefaultMutableTreeNode("ROOT");
 		DefaultTreeModel treeModel = new DefaultTreeModel(root);
 		getJTree().setModel(treeModel);
@@ -329,6 +335,31 @@ public class SimpleTreeConfigViewer {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * This method initializes jScrollPane2	
+	 * 	
+	 * @return javax.swing.JScrollPane	
+	 */
+	private JScrollPane getJScrollPane2() {
+		if (jScrollPane2 == null) {
+			jScrollPane2 = new JScrollPane();
+			jScrollPane2.setViewportView(getJConsolePane());
+		}
+		return jScrollPane2;
+	}
+
+	/**
+	 * This method initializes jConsolePane	
+	 * 	
+	 * @return javax.swing.JTextPane	
+	 */
+	private JTextPane getJConsolePane() {
+		if (jConsolePane == null) {
+			jConsolePane = new JTextPane();
+		}
+		return jConsolePane;
 	}
 
 	/**
