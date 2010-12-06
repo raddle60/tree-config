@@ -73,6 +73,8 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private int pingSeconds = 60;
 	private TreeConfigClientListener listener = null;
 	private static final Set<String> updateMethodSet = new HashSet<String>();
+	private boolean closing = false;
+	private AtomicInteger shutdownCount = new AtomicInteger(0);;
 	static {
 		updateMethodSet.add("saveNode");
 		updateMethodSet.add("saveNodes");
@@ -96,6 +98,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	}
 
 	public synchronized void connect() {
+		closing = false;
 		if (connector == null) {
 			logger.info("initialize executors");
 			taskExecutor = new ThreadPoolExecutor(0, 5, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
@@ -201,8 +204,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 				@Override
 				public void run() {
+					shutdownCount.incrementAndGet();
 					// 断开连接后重连
-					while (connector != null && connector.getManagedSessionCount() == 0) {
+					while (!closing && connector != null && connector.getManagedSessionCount() == 0) {
 						try {
 							ConnectFuture future = connector.connect(new InetSocketAddress(serverIp, serverPort));
 							future.awaitUninterruptibly();
@@ -211,11 +215,12 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 							logger.error("connecting to {}:{} faild , because of {}: {}", new Object[] { serverIp, serverPort, ExceptionUtils.getRootCause(e).getClass(), ExceptionUtils.getRootCause(e).getMessage() });
 						}
 						try {
-							Thread.sleep(2000);
+							Thread.sleep(5000);
 						} catch (InterruptedException e) {
 							logger.warn(e.getMessage(), e);
 						}
 					}
+					shutdownCount.decrementAndGet();
 				}
 			};
 			checkConnectionThread.setDaemon(true);
@@ -225,7 +230,8 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			Thread notifyThread = new Thread(){
 				@Override
 				public void run() {
-					while (true) {
+					shutdownCount.incrementAndGet();
+					while (!closing && true) {
 						InvokeCommand command = null;
 						synchronized (notifyTask) {
 							while(notifyTask.size() > 0){
@@ -250,6 +256,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 							}
 						}
 					}
+					shutdownCount.decrementAndGet();
 				}
 			};
 			notifyThread.setDaemon(true);
@@ -259,6 +266,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	}
 
 	public synchronized void close() {
+		closing = true;
 		if(taskExecutor != null){
 			logger.info("task executor shuting down");
 			taskExecutor.shutdown();
@@ -270,7 +278,14 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		if (connector != null) {
 			logger.info("connector disposing");
 			connector.dispose();
-			connector = null;
+		}
+		logger.info("wating for thread exit");
+		while (shutdownCount.get() != 0) {
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				logger.error(e.getMessage(), e);
+			}
 		}
 		logger.info("tree config client close complete .");
 	}
