@@ -31,6 +31,10 @@ import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.ui.ConsoleUtils;
 import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.config.tree.utils.TreeUtils;
+import javax.swing.JLabel;
+import java.awt.Rectangle;
+import javax.swing.JTextField;
+import javax.swing.JButton;
 
 /**
  * @author xurong
@@ -112,7 +116,19 @@ public class SimpleTreeConfigViewer {
 	 */
 	private JDesktopPane getJDesktopPane() {
 		if (jDesktopPane == null) {
+			jLabel1 = new JLabel();
+			jLabel1.setBounds(new Rectangle(180, 12, 49, 21));
+			jLabel1.setText("Port");
+			jLabel = new JLabel();
+			jLabel.setBounds(new Rectangle(8, 9, 23, 22));
+			jLabel.setText("IP");
 			jDesktopPane = new JDesktopPane();
+			jDesktopPane.add(jLabel, null);
+			jDesktopPane.add(getIpTxt(), null);
+			jDesktopPane.add(jLabel1, null);
+			jDesktopPane.add(getPortTxt(), null);
+			jDesktopPane.add(getConnectBtn(), null);
+			jDesktopPane.add(getDisconnectBtn(), null);
 		}
 		return jDesktopPane;
 	}
@@ -187,120 +203,17 @@ public class SimpleTreeConfigViewer {
 		return jTextPane;
 	}
 	private DefaultTreeConfigClient client = null;  //  @jve:decl-index=0:
-	private MemoryConfigManager manager = new MemoryConfigManager();
+	private MemoryConfigManager manager = new MemoryConfigManager();  //  @jve:decl-index=0:
 	private JScrollPane jScrollPane2 = null;
 	private JTextPane jConsolePane = null;
+	private JLabel jLabel = null;
+	private JTextField ipTxt = null;
+	private JLabel jLabel1 = null;
+	private JTextField portTxt = null;
+	private JButton connectBtn = null;
+	private JButton disconnectBtn = null;
 	private void init(){
 		ConsoleUtils.redirectConsole(getJConsolePane());
-		final DefaultMutableTreeNode root = new DefaultMutableTreeNode("ROOT");
-		DefaultTreeModel treeModel = new DefaultTreeModel(root);
-		getJTree().setModel(treeModel);
-		client = new DefaultTreeConfigClient("127.0.0.1", 9877);
-		client.setLocalManager(manager);
-		manager.setTreeConfigListener(new TreeConfigListener() {
-			
-			@Override
-			public void nodeValueChanged(final TreeConfigNode node, final Serializable newValue, final Serializable oldValue) {
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						prepareNode(root, node);
-						if (!ObjectUtils.equals(newValue, oldValue)) {
-							TreeConfigNode configNode = getSelectedConfigNode();
-							if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
-								nodeSelected();
-							}
-						}
-					}
-				});
-			}
-
-			private void prepareNode(final DefaultMutableTreeNode root, TreeConfigNode node) {
-				boolean hasChanged = false;
-				DefaultMutableTreeNode parent = root;
-				for (int i = 0; i < node.getNodePath().getPath().length; i++) {
-					String path = node.getNodePath().getPath()[i];
-					boolean exist = false;
-					for (int j = 0; j < parent.getChildCount(); j++) {
-						DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(j);
-						if (path.equals(child.getUserObject())) {
-							exist = true;
-							parent = child;
-							break;
-						}
-					}
-					if (!exist) {
-						DefaultMutableTreeNode child = new DefaultMutableTreeNode(path);
-						parent.add(child);
-						parent = child;
-						hasChanged = true;
-					}
-				}
-				if (hasChanged) {
-					getJTree().updateUI();
-				}
-			}
-			
-			@Override
-			public void nodeRemoved(final TreeConfigNode removedNode) {
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						DefaultMutableTreeNode toRemove = root;
-						for (int i = 0; i < removedNode.getNodePath().getPath().length; i++) {
-							String path = removedNode.getNodePath().getPath()[i];
-							boolean exist = false;
-							for (int j = 0; j < toRemove.getChildCount(); j++) {
-								DefaultMutableTreeNode child = (DefaultMutableTreeNode) toRemove.getChildAt(j);
-								if (path.equals(child.getUserObject())) {
-									exist = true;
-									toRemove = child;
-									break;
-								}
-							}
-							if (!exist) {
-								return;
-							}
-						}
-						toRemove.removeFromParent();
-						getJTree().updateUI();
-					}
-				});
-			}
-			
-			@Override
-			public void attributeValueChanged(final TreeConfigNode node,final TreeConfigAttribute attribute,final Serializable newValue,final Serializable oldValue) {
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						prepareNode(root, node);
-						if (!ObjectUtils.equals(newValue, oldValue)) {
-							TreeConfigNode configNode = getSelectedConfigNode();
-							if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
-								nodeSelected();
-							}
-						}
-					}
-				});
-			}
-			
-			@Override
-			public void attributeRemoved(final TreeConfigNode node,final TreeConfigAttribute removedAttribute) {
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						TreeConfigNode configNode = getSelectedConfigNode();
-						if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
-							nodeSelected();
-						}
-					}
-				});
-			}
-			
-		});
-		// 获取全部节点
-		client.bindInitialGetNodes(null, true);
-		client.connect();
 	}
 	
 	private void nodeSelected() {
@@ -360,6 +273,202 @@ public class SimpleTreeConfigViewer {
 			jConsolePane = new JTextPane();
 		}
 		return jConsolePane;
+	}
+
+	/**
+	 * This method initializes ipTxt	
+	 * 	
+	 * @return javax.swing.JTextField	
+	 */
+	private JTextField getIpTxt() {
+		if (ipTxt == null) {
+			ipTxt = new JTextField();
+			ipTxt.setBounds(new Rectangle(35, 11, 135, 22));
+			ipTxt.setText("127.0.0.1");
+		}
+		return ipTxt;
+	}
+
+	/**
+	 * This method initializes portTxt	
+	 * 	
+	 * @return javax.swing.JTextField	
+	 */
+	private JTextField getPortTxt() {
+		if (portTxt == null) {
+			portTxt = new JTextField();
+			portTxt.setBounds(new Rectangle(238, 11, 83, 21));
+			portTxt.setText("9877");
+		}
+		return portTxt;
+	}
+
+	/**
+	 * This method initializes connectBtn	
+	 * 	
+	 * @return javax.swing.JButton	
+	 */
+	private JButton getConnectBtn() {
+		if (connectBtn == null) {
+			connectBtn = new JButton();
+			connectBtn.setBounds(new Rectangle(341, 13, 83, 20));
+			connectBtn.setText("连接");
+			connectBtn.addActionListener(new java.awt.event.ActionListener() {
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					connectBtn.setEnabled(false);
+					ipTxt.setEnabled(false);
+					portTxt.setEnabled(false);
+					try {
+						final DefaultMutableTreeNode root = new DefaultMutableTreeNode("ROOT");
+						DefaultTreeModel treeModel = new DefaultTreeModel(root);
+						getJTree().setModel(treeModel);
+						client = new DefaultTreeConfigClient(ipTxt.getText(), Integer.parseInt(portTxt.getText()));
+						client.setLocalManager(manager);
+						manager.setTreeConfigListener(new TreeConfigListener() {
+							
+							@Override
+							public void nodeValueChanged(final TreeConfigNode node, final Serializable newValue, final Serializable oldValue) {
+								SwingUtilities.invokeLater(new Runnable() {
+									@Override
+									public void run() {
+										prepareNode(root, node);
+										if (!ObjectUtils.equals(newValue, oldValue)) {
+											TreeConfigNode configNode = getSelectedConfigNode();
+											if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
+												nodeSelected();
+											}
+										}
+									}
+								});
+							}
+
+							private void prepareNode(final DefaultMutableTreeNode root, TreeConfigNode node) {
+								boolean hasChanged = false;
+								DefaultMutableTreeNode parent = root;
+								for (int i = 0; i < node.getNodePath().getPath().length; i++) {
+									String path = node.getNodePath().getPath()[i];
+									boolean exist = false;
+									for (int j = 0; j < parent.getChildCount(); j++) {
+										DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(j);
+										if (path.equals(child.getUserObject())) {
+											exist = true;
+											parent = child;
+											break;
+										}
+									}
+									if (!exist) {
+										DefaultMutableTreeNode child = new DefaultMutableTreeNode(path);
+										parent.add(child);
+										parent = child;
+										hasChanged = true;
+									}
+								}
+								if (hasChanged) {
+									getJTree().updateUI();
+								}
+							}
+							
+							@Override
+							public void nodeRemoved(final TreeConfigNode removedNode) {
+								SwingUtilities.invokeLater(new Runnable() {
+									@Override
+									public void run() {
+										DefaultMutableTreeNode toRemove = root;
+										for (int i = 0; i < removedNode.getNodePath().getPath().length; i++) {
+											String path = removedNode.getNodePath().getPath()[i];
+											boolean exist = false;
+											for (int j = 0; j < toRemove.getChildCount(); j++) {
+												DefaultMutableTreeNode child = (DefaultMutableTreeNode) toRemove.getChildAt(j);
+												if (path.equals(child.getUserObject())) {
+													exist = true;
+													toRemove = child;
+													break;
+												}
+											}
+											if (!exist) {
+												return;
+											}
+										}
+										toRemove.removeFromParent();
+										getJTree().updateUI();
+									}
+								});
+							}
+							
+							@Override
+							public void attributeValueChanged(final TreeConfigNode node,final TreeConfigAttribute attribute,final Serializable newValue,final Serializable oldValue) {
+								SwingUtilities.invokeLater(new Runnable() {
+									@Override
+									public void run() {
+										prepareNode(root, node);
+										if (!ObjectUtils.equals(newValue, oldValue)) {
+											TreeConfigNode configNode = getSelectedConfigNode();
+											if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
+												nodeSelected();
+											}
+										}
+									}
+								});
+							}
+							
+							@Override
+							public void attributeRemoved(final TreeConfigNode node,final TreeConfigAttribute removedAttribute) {
+								SwingUtilities.invokeLater(new Runnable() {
+									@Override
+									public void run() {
+										TreeConfigNode configNode = getSelectedConfigNode();
+										if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
+											nodeSelected();
+										}
+									}
+								});
+							}
+							
+						});
+						// 获取全部节点
+						client.bindInitialGetNodes(null, true);
+						client.connect();
+						disconnectBtn.setEnabled(true);
+					} catch (Exception e1) {
+						e1.printStackTrace();
+						connectBtn.setEnabled(true);
+						ipTxt.setEnabled(true);
+						portTxt.setEnabled(true);
+					}
+				}
+			});
+		}
+		return connectBtn;
+	}
+
+	/**
+	 * This method initializes disconnectBtn	
+	 * 	
+	 * @return javax.swing.JButton	
+	 */
+	private JButton getDisconnectBtn() {
+		if (disconnectBtn == null) {
+			disconnectBtn = new JButton();
+			disconnectBtn.setBounds(new Rectangle(447, 13, 86, 22));
+			disconnectBtn.setEnabled(false);
+			disconnectBtn.setText("断开");
+			disconnectBtn.addActionListener(new java.awt.event.ActionListener() {
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					disconnectBtn.setEnabled(false);
+					// close是有等待，所以另起线程，放置阻塞ui
+					new Thread(){
+						@Override
+						public void run() {
+							client.close();
+							connectBtn.setEnabled(true);
+							ipTxt.setEnabled(true);
+							portTxt.setEnabled(true);
+						}
+					}.start();
+				}
+			});
+		}
+		return disconnectBtn;
 	}
 
 	/**
