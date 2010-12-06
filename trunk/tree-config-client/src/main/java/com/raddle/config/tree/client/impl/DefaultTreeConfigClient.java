@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.config.tree.DefaultNodeSelector;
+import com.raddle.config.tree.DefaultUpdateNode;
 import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
@@ -65,7 +66,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private NioSocketConnector connector = null;
 	private List<DefaultNodeSelector> initialGetNodes = new LinkedList<DefaultNodeSelector>();
 	private List<DefaultNodeSelector> initialPushNodes = new LinkedList<DefaultNodeSelector>();
-	private List<UpdateNode> disconnectedNodes = new LinkedList<UpdateNode>();
+	private List<DefaultUpdateNode> disconnectedNodes = new LinkedList<DefaultUpdateNode>();
 	private Deque<InvokeCommand> notifyTask = new LinkedList<InvokeCommand>();
 	private SocketAddress localAddress = null;
 	private ExecutorService taskExecutor = null;
@@ -292,7 +293,12 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 	@Override
 	public void bindDisconnectedNode(TreeConfigNode node, boolean includeNodeValue) {
-		disconnectedNodes.add(new UpdateNode(node, includeNodeValue));
+		disconnectedNodes.add(new DefaultUpdateNode(node, includeNodeValue));
+	}
+	
+	@Override
+	public void bindDisconnectedDelNode(TreeConfigNode node, boolean recursive) {
+		disconnectedNodes.add(new DefaultUpdateNode(node, true, recursive));
 	}
 
 	@Override
@@ -567,32 +573,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		return localAddress;
 	}
 	
-	class UpdateNode {
-		private TreeConfigNode node;
-		private boolean updateNodeValue;
-
-		public UpdateNode(TreeConfigNode node, boolean updateNodeValue) {
-			this.node = node;
-			this.updateNodeValue = updateNodeValue;
-		}
-
-		public TreeConfigNode getNode() {
-			return node;
-		}
-
-		public void setNode(TreeConfigNode node) {
-			this.node = node;
-		}
-
-		public boolean isUpdateNodeValue() {
-			return updateNodeValue;
-		}
-
-		public void setUpdateNodeValue(boolean updateNodeValue) {
-			this.updateNodeValue = updateNodeValue;
-		}
-	}
-
 	class SyncTask implements Runnable {
 		
 		@Override
@@ -608,8 +588,8 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				syncSender.sendCommand("treeConfigRegister", "registerClient", new Object[] { clientId }, invokeTimeoutSeconds);
 				// 绑定断开连接时的值
 				logger.debug("binding disconnected value");
-				for (UpdateNode updateNode : disconnectedNodes) {
-					syncSender.sendCommand("treeConfigBinder", "bindDisconnectedValue", new Object[] {updateNode.getNode(), updateNode.isUpdateNodeValue()}, 3);
+				for (DefaultUpdateNode updateNode : disconnectedNodes) {
+					syncSender.sendCommand("treeConfigBinder", "bindDisconnectedValue", new Object[] {updateNode}, 3);
 				}
 				// 绑定接收通知的节点
 				logger.debug("binding listening nodes");

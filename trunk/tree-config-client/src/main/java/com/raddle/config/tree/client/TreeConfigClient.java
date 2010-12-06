@@ -17,6 +17,13 @@ public interface TreeConfigClient extends TreeConfigManager {
 	public void bindDisconnectedNode(TreeConfigNode node ,boolean includeNodeValue);
 	
 	/**
+	 * 绑定断开连接时的值，连接断开后，服务端自动刪除这个节点
+	 * @param node 断开连接后的节点
+	 * @param recursive 是否有子节点也删除
+	 */
+	public void bindDisconnectedDelNode(TreeConfigNode node ,boolean recursive);
+	
+	/**
 	 * 绑定连接时，初始化的节点。第一次连接和每次异常断开再连接时，都会重新发送这些值到服务器端，只更新值，不会删除属性
 	 * @param path 初始化节点路径
 	 * @param recursive 是否递归更新

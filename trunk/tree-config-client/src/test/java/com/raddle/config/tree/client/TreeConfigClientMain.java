@@ -24,17 +24,31 @@ public class TreeConfigClientMain {
 				configPath.setSplitPath("testing/client/" + IpUtils.getIpAddress(session.getLocalAddress()));
 				if (!init.value) {
 					// 只初始化一次
+					// 待更新的节点
 					DefaultConfigNode clientNode = new DefaultConfigNode();
 					clientNode.setNodePath(configPath);
 					clientNode.setAttributeValue("isConnected", true);
 					client.getLocalManager().saveNode(clientNode, true);
-					client.bindInitialPushNodes(clientNode.getNodePath(), false);
+					client.bindInitialPushNodes(clientNode.getNodePath(), true);
+					// 待删除的节点
+					DefaultConfigNode delNode = new DefaultConfigNode();
+					delNode.setNodePath(new DefaultConfigPath("testing/client/" + IpUtils.getIpAddress(session.getLocalAddress()) + "/todel"));
+					delNode.setAttributeValue("xxx", "fff");
+					client.getLocalManager().saveNode(delNode, true);
+					client.bindInitialPushNodes(delNode.getNodePath(), true);
+					// 绑定初始化
 					// ////////////////////////
+					// 断开更新
 					DefaultConfigNode disconnectedNode = new DefaultConfigNode();
 					disconnectedNode.setNodePath(configPath);
 					disconnectedNode.setAttributeValue("isConnected", false);
 					client.bindDisconnectedNode(disconnectedNode, false);
+					// 断开删除
+					DefaultConfigNode disconnectedDelNode = new DefaultConfigNode();
+					disconnectedDelNode.setNodePath(new DefaultConfigPath("testing/client/" + IpUtils.getIpAddress(session.getLocalAddress())+"/todel"));
+					client.bindDisconnectedDelNode(disconnectedDelNode, false);
 					// ///////////////////////
+					// 初始获得所有节点
 					client.bindInitialGetNodes(null, true);
 				}
 			}
