@@ -52,5 +52,6 @@ public class TreeConfigClientMain {
 			e.printStackTrace();
 		}
 		client.close();
+		System.out.println();
 	}
 }
