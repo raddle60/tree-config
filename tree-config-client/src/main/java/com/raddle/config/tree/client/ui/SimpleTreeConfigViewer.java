@@ -19,6 +19,7 @@ import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 
 import org.apache.commons.lang.ObjectUtils;
 
@@ -169,11 +170,13 @@ public class SimpleTreeConfigViewer {
 	private JTree getJTree() {
 		if (jTree == null) {
 			jTree = new JTree();
+			jTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
 			jTree.addTreeSelectionListener(new javax.swing.event.TreeSelectionListener() {
 				public void valueChanged(javax.swing.event.TreeSelectionEvent e) {
 					nodeSelected();
 				}
 			});
+			jTree.setModel(new DefaultTreeModel(new DefaultMutableTreeNode()));
 		}
 		return jTree;
 	}
