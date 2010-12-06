@@ -35,6 +35,7 @@ public class SyncCommandSender {
 		final ObjectHolder ret = new ObjectHolder();
 		final ObjectHolder exception = new ObjectHolder();
 		final BooleanHolder isTimeout = new BooleanHolder(false);
+		final BooleanHolder isResponse = new BooleanHolder(false);
 		InvokeCommand command = new InvokeCommand();
 		command.setTargetId(targetId);
 		command.setMethod(method);
@@ -43,6 +44,7 @@ public class SyncCommandSender {
 
 			@Override
 			public void commandResponse(InvokeCommand command, Object response) {
+				isResponse.value = true;
 				ret.setValue(response);
 				synchronized (ret) {
 					ret.notify();
@@ -75,7 +77,7 @@ public class SyncCommandSender {
 				if (logger.isDebugEnabled()) {
 					logger.debug("waiting result for command interrupted , target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
 				}
-				throw new ResponseTimeoutException(e.getMessage(), e);
+				throw new ResponseTimeoutException(e.getMessage() +", "+ ReflectToStringBuilder.reflectToString(command), e);
 			}
 		}
 		// 调用异常
@@ -84,18 +86,25 @@ public class SyncCommandSender {
 				if (logger.isDebugEnabled()) {
 					logger.debug("receive command timeout, target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
 				}
-				throw new ResponseTimeoutException(exception.getValue() + "");
+				throw new ResponseTimeoutException(exception.getValue() + " , "+ ReflectToStringBuilder.reflectToString(command));
 			} else {
 				if (logger.isDebugEnabled()) {
 					logger.debug("execute command has client exception ,target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
 				}
-				throw new RemoteExecuteException(exception.getValue() + "");
+				throw new RemoteExecuteException(exception.getValue() + " , "+ ReflectToStringBuilder.reflectToString(command));
 			}
 		}
-		if (logger.isDebugEnabled()) {
-			logger.debug("execute command successed, target:{} , method:{} , args :{} , return {}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args), ReflectToStringBuilder.reflectToString(ret.getValue())});
+		if(isResponse.value){
+			if (logger.isDebugEnabled()) {
+				logger.debug("execute command successed, target:{} , method:{} , args :{} , return {}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args), ReflectToStringBuilder.reflectToString(ret.getValue())});
+			}
+			return ret.getValue();
+		} else {
+			if (logger.isDebugEnabled()) {
+				logger.debug("execute command timeout, target:{} , method:{} , args :{} , return {}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args), ReflectToStringBuilder.reflectToString(ret.getValue())});
+			}
+			throw new ResponseTimeoutException("方法调用返回超时,设定的超时时间" + timeoutSeconds + "秒 , "+ ReflectToStringBuilder.reflectToString(command));
 		}
-		return ret.getValue();
 	}
 
 	class ObjectHolder {
