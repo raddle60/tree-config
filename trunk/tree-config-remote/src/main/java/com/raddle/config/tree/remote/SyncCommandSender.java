@@ -77,7 +77,7 @@ public class SyncCommandSender {
 				if (logger.isDebugEnabled()) {
 					logger.debug("waiting result for command interrupted , target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
 				}
-				throw new ResponseTimeoutException(e.getMessage() +", "+ ReflectToStringBuilder.reflectToString(command), e);
+				throw new ResponseTimeoutException(e.getMessage() + "targetId:" + command.getTargetId() + ", method:" + command.getMethod(), e);
 			}
 		}
 		// 调用异常
@@ -86,12 +86,12 @@ public class SyncCommandSender {
 				if (logger.isDebugEnabled()) {
 					logger.debug("receive command timeout, target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
 				}
-				throw new ResponseTimeoutException(exception.getValue() + " , "+ ReflectToStringBuilder.reflectToString(command));
+				throw new ResponseTimeoutException(exception.getValue() + "targetId:" + command.getTargetId() + ", method:" + command.getMethod());
 			} else {
 				if (logger.isDebugEnabled()) {
 					logger.debug("execute command has client exception ,target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
 				}
-				throw new RemoteExecuteException(exception.getValue() + " , "+ ReflectToStringBuilder.reflectToString(command));
+				throw new RemoteExecuteException(exception.getValue() + "targetId:" + command.getTargetId() + ", method:" + command.getMethod());
 			}
 		}
 		if(isResponse.value){
@@ -103,7 +103,7 @@ public class SyncCommandSender {
 			if (logger.isDebugEnabled()) {
 				logger.debug("execute command timeout, target:{} , method:{} , args :{} , return {}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args), ReflectToStringBuilder.reflectToString(ret.getValue())});
 			}
-			throw new ResponseTimeoutException("方法调用返回超时,设定的超时时间" + timeoutSeconds + "秒 , "+ ReflectToStringBuilder.reflectToString(command));
+			throw new ResponseTimeoutException("方法调用返回超时,设定的超时时间" + timeoutSeconds + "秒 , " + "targetId:" + command.getTargetId() + ", method:" + command.getMethod());
 		}
 	}
 
