@@ -185,7 +185,6 @@ public class DefaultTreeConfigServer {
 				if(clientContext != null && clientContext.getDisconnectedValues().size() > 0){
 					// 通知断开以后的值
 					for (DefaultUpdateNode updateNode : clientContext.getDisconnectedValues()) {
-						System.out.println("xxxxxx");
 						if (updateNode.isDeleteNode()) {
 							localManager.removeNode(updateNode.getNode().getNodePath(), updateNode.isRecursive());
 							addNotifyTask(session, "removeNode", new Object[] { updateNode.getNode().getNodePath(), updateNode.isRecursive() });
