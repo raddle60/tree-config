@@ -72,7 +72,9 @@ public class SimpleTreeConfigViewer {
 			jFrame.setTitle("Tree Config 查看器");				
 			jFrame.addWindowListener(new java.awt.event.WindowAdapter() {
 				public void windowClosing(java.awt.event.WindowEvent e) {
-					client.close();
+					if(client != null){
+						client.close();
+					}
 				}
 			});
 	}
@@ -482,6 +484,7 @@ public class SimpleTreeConfigViewer {
 			public void run() {
 				SimpleTreeConfigViewer application = new SimpleTreeConfigViewer();
 				application.init();
+				application.getJFrame().setLocationRelativeTo(null);
 				application.getJFrame().setVisible(true);
 			}
 		});

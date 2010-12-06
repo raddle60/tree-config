@@ -185,8 +185,14 @@ public class DefaultTreeConfigServer {
 				if(clientContext != null && clientContext.getDisconnectedValues().size() > 0){
 					// 通知断开以后的值
 					for (DefaultUpdateNode updateNode : clientContext.getDisconnectedValues()) {
-						localManager.saveNode(updateNode.getNode(), updateNode.isUpdateNodeValue());
-						addNotifyTask(session, "saveNode", new Object[]{updateNode.getNode(), updateNode.isUpdateNodeValue()});
+						System.out.println("xxxxxx");
+						if (updateNode.isDeleteNode()) {
+							localManager.removeNode(updateNode.getNode().getNodePath(), updateNode.isRecursive());
+							addNotifyTask(session, "removeNode", new Object[] { updateNode.getNode().getNodePath(), updateNode.isRecursive() });
+						} else {
+							localManager.saveNode(updateNode.getNode(), updateNode.isUpdateNodeValue());
+							addNotifyTask(session, "saveNode", new Object[] { updateNode.getNode(), updateNode.isUpdateNodeValue() });
+						}
 					}
 				}
 				// 更新客户端连接数
@@ -375,10 +381,10 @@ public class DefaultTreeConfigServer {
 		clientMap.put(clientId, clientContext);
 	}
 
-	public void bindDisconnectedValue(TreeConfigNode node, boolean updatedNodeValue) {
+	public void bindDisconnectedValue(DefaultUpdateNode node) {
 		logger.debug("bind disconnected value , remote address [{}]", CommandContext.getIoSession().getRemoteAddress());
 		String clientId = (String) CommandContext.getIoSession().getAttribute(ATTR_KEY_CLIENT_ID);
-		clientMap.get(clientId).getDisconnectedValues().add(new DefaultUpdateNode(node, updatedNodeValue));
+		clientMap.get(clientId).getDisconnectedValues().add(node);
 	}
 
 	public void bindlisteningNodes(List<DefaultNodeSelector> listeningNodes) {
