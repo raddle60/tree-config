@@ -280,14 +280,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			logger.info("connector disposing");
 			connector.dispose();
 		}
-		logger.info("wating for thread exit");
-		while (shutdownCount.get() != 0) {
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				logger.error(e.getMessage(), e);
-			}
-		}
 		logger.info("tree config client close complete .");
 	}
 
