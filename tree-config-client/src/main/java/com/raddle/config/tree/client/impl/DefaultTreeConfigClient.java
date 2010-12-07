@@ -49,6 +49,8 @@ import com.raddle.nio.mina.hessian.HessianDecoder;
 import com.raddle.nio.mina.hessian.HessianEncoder;
 
 /**
+ * 注意：client只能连接一次，用完后一定要close，close会关闭所有连接和处理线程<br>
+ * 不close，将导致处理线程没有关闭，程序无法退出
  * @author xurong
  * 
  */
