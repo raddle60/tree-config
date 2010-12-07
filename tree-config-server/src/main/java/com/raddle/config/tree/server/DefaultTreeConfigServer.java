@@ -77,6 +77,7 @@ public class DefaultTreeConfigServer {
 	private ScheduledExecutorService pingSchedule = null;
 	private Map<String, ClientContext> clientMap = new Hashtable<String, ClientContext>();
 	private Object notifyWaiting = new Object();
+	private AbstractInvokeCommandHandler commandHandler = null;
 	static {
 		updateMethodSet.add("saveNode");
 		updateMethodSet.add("saveNodes");
@@ -99,7 +100,7 @@ public class DefaultTreeConfigServer {
 		// hessain序列化
 		acceptor.getFilterChain().addLast("codec", new ProtocolCodecFilter(new HessianEncoder(), new HessianDecoder()));
 		// 方法调用
-		AbstractInvokeCommandHandler handler = new AbstractInvokeCommandHandler() {
+		commandHandler = new AbstractInvokeCommandHandler() {
 
 			@Override
 			@SuppressWarnings("unchecked")
@@ -249,8 +250,8 @@ public class DefaultTreeConfigServer {
 			}
 
 		};
-		handler.setMaxTaskThreads(50);
-		acceptor.setHandler(handler);
+		commandHandler.setMaxTaskThreads(50);
+		acceptor.setHandler(commandHandler);
 		logger.info("initialize local configuration");
 		DefaultConfigNode serverConfigNode = new DefaultConfigNode();
 		serverConfigNode.setNodePath(new DefaultConfigPath("/树形配置服务器/设置"));
@@ -446,6 +447,10 @@ public class DefaultTreeConfigServer {
 		acceptor.unbind();
 		acceptor.dispose();
 		clientMap.clear();
+		if (commandHandler != null) {
+			logger.info("command handler disposing");
+			commandHandler.dispose();
+		}
 		logger.info("shutdown server completed in {}ms ", System.currentTimeMillis() - startAt);
 	}
 

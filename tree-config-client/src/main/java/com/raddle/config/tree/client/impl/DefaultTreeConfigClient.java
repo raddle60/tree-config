@@ -70,12 +70,13 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private Deque<InvokeCommand> notifyTask = new LinkedList<InvokeCommand>();
 	private SocketAddress localAddress = null;
 	private ExecutorService taskExecutor = null;
-	private ScheduledExecutorService pingSchedule = null;
+	private ScheduledExecutorService scheduleExecutor = null;
 	private int pingSeconds = 60;
 	private TreeConfigClientListener listener = null;
 	private static final Set<String> updateMethodSet = new HashSet<String>();
 	private boolean closing = false;
-	private AtomicInteger shutdownCount = new AtomicInteger(0);;
+	private AtomicInteger shutdownCount = new AtomicInteger(0);
+	private AbstractInvokeCommandHandler commandHandler = null;
 	static {
 		updateMethodSet.add("saveNode");
 		updateMethodSet.add("saveNodes");
@@ -103,13 +104,14 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 		if (connector == null) {
 			logger.info("initialize executors");
 			taskExecutor = new ThreadPoolExecutor(0, 5, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+			scheduleExecutor = Executors.newScheduledThreadPool(1);
 			logger.info("initialize nio-connector");
 			connector = new NioSocketConnector();
 			logger.info("setting connect timeout {}ms", connectTimeoutMs);
 			connector.setConnectTimeoutMillis(connectTimeoutMs);
 			connector.getFilterChain().addFirst("binaryCodec", new ProtocolCodecFilter(new HessianEncoder(), new HessianDecoder()));
 			// 处理接收的命令和响应
-			connector.setHandler(new AbstractInvokeCommandHandler() {
+			commandHandler = new AbstractInvokeCommandHandler() {
 				@Override
 				protected Object invokeMethod(MethodInvoke methodInvoke) throws Exception {
 					logger.debug("invoke received , target:{} , method {}" , methodInvoke.getTarget().getClass(), methodInvoke.getMethod());
@@ -177,7 +179,8 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 					// 其他操作并发执行
 					return null;
 				}
-			});
+			};
+			connector.setHandler(commandHandler);
 			logger.info("connecting to {}:{}", serverIp, serverPort);
 			ConnectFuture future = connector.connect(new InetSocketAddress(serverIp, serverPort));
 			future.awaitUninterruptibly();
@@ -188,8 +191,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				logger.warn("connecting to {}:{} failed." , serverIp, serverPort);
 			}
 			logger.info("ping server per {} seconds" , pingSeconds);
-			pingSchedule = Executors.newScheduledThreadPool(1);
-			pingSchedule.scheduleWithFixedDelay(new Runnable() {
+			scheduleExecutor.scheduleWithFixedDelay(new Runnable() {
 				
 				@Override
 				public void run() {
@@ -201,13 +203,12 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			}, pingSeconds, pingSeconds, TimeUnit.SECONDS);
 			// 保持连接
 			logger.info("starting reconnect thread");
-			Thread checkConnectionThread = new Thread(){
+			scheduleExecutor.scheduleWithFixedDelay(new Runnable(){
 
 				@Override
 				public void run() {
-					shutdownCount.incrementAndGet();
 					// 断开连接后重连
-					while (!closing && connector != null && connector.getManagedSessionCount() == 0) {
+					if (!closing && connector != null && connector.getManagedSessionCount() == 0) {
 						try {
 							ConnectFuture future = connector.connect(new InetSocketAddress(serverIp, serverPort));
 							future.awaitUninterruptibly();
@@ -215,17 +216,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 						} catch (Exception e) {
 							logger.error("connecting to {}:{} faild , because of {}: {}", new Object[] { serverIp, serverPort, ExceptionUtils.getRootCause(e).getClass(), ExceptionUtils.getRootCause(e).getMessage() });
 						}
-						try {
-							Thread.sleep(5000);
-						} catch (InterruptedException e) {
-							logger.warn(e.getMessage(), e);
-						}
 					}
-					shutdownCount.decrementAndGet();
 				}
-			};
-			checkConnectionThread.setDaemon(true);
-			checkConnectionThread.start();
+			}, 1, 5, TimeUnit.SECONDS);
 			// 发送通知
 			logger.info("starting notify thread");
 			Thread notifyThread = new Thread(){
@@ -268,17 +261,25 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 
 	public synchronized void close() {
 		closing = true;
-		if(taskExecutor != null){
+		if (taskExecutor != null) {
 			logger.info("task executor shuting down");
 			taskExecutor.shutdown();
 		}
-		if(pingSchedule != null){
-			logger.info("ping schedule shuting down");
-			pingSchedule.shutdown();
+		if (scheduleExecutor != null) {
+			logger.info("schedule executor shuting down");
+			scheduleExecutor.shutdown();
 		}
 		if (connector != null) {
 			logger.info("connector disposing");
 			connector.dispose();
+		}
+		if (commandHandler != null) {
+			logger.info("command handler disposing");
+			commandHandler.dispose();
+		}
+		logger.info("notify thread shuting down");
+		synchronized (notifyTask) {
+			notifyTask.notify();
 		}
 		logger.info("tree config client close complete .");
 	}
