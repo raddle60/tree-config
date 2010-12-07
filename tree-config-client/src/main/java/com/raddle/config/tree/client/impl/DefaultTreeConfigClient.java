@@ -28,6 +28,7 @@ import org.apache.mina.transport.socket.nio.NioSocketConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.DefaultUpdateNode;
 import com.raddle.config.tree.api.TreeConfigAttribute;
@@ -297,7 +298,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	}
 	
 	@Override
-	public void bindDisconnectedDelNode(TreeConfigNode node, boolean recursive) {
+	public void bindDisconnectedDelNode(TreeConfigPath path, boolean recursive) {
+		DefaultConfigNode node = new DefaultConfigNode();
+		node.setNodePath(path);
 		disconnectedNodes.add(new DefaultUpdateNode(node, true, recursive));
 	}
 
