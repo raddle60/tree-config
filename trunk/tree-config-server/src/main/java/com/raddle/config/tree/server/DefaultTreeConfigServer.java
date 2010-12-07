@@ -184,17 +184,20 @@ public class DefaultTreeConfigServer {
 			public void sessionClosed(IoSession session) throws Exception {
 				logger.debug("Session closed , remote address [{}], clientId [{}], sessions [{}].", new Object[]{session.getRemoteAddress(), session
 						.getAttribute(ATTR_KEY_CLIENT_ID), acceptor.getManagedSessionCount()});
-				ClientContext clientContext = clientMap.get(session.getAttribute(ATTR_KEY_CLIENT_ID));
-				clientMap.remove(session.getAttribute(ATTR_KEY_CLIENT_ID));
-				if(clientContext != null && clientContext.getDisconnectedValues().size() > 0){
-					// 通知断开以后的值
-					for (DefaultUpdateNode updateNode : clientContext.getDisconnectedValues()) {
-						if (updateNode.isDeleteNode()) {
-							localManager.removeNode(updateNode.getNode().getNodePath(), updateNode.isRecursive());
-							addNotifyTask(session, "removeNode", new Object[] { updateNode.getNode().getNodePath(), updateNode.isRecursive() });
-						} else {
-							localManager.saveNode(updateNode.getNode(), updateNode.isUpdateNodeValue());
-							addNotifyTask(session, "saveNode", new Object[] { updateNode.getNode(), updateNode.isUpdateNodeValue() });
+				String clientId = (String) session.getAttribute(ATTR_KEY_CLIENT_ID);
+				if(clientId != null){
+					ClientContext clientContext = clientMap.get(clientId);
+					clientMap.remove(clientId);
+					if(clientContext != null && clientContext.getDisconnectedValues().size() > 0){
+						// 通知断开以后的值
+						for (DefaultUpdateNode updateNode : clientContext.getDisconnectedValues()) {
+							if (updateNode.isDeleteNode()) {
+								localManager.removeNode(updateNode.getNode().getNodePath(), updateNode.isRecursive());
+								addNotifyTask(session, "removeNode", new Object[] { updateNode.getNode().getNodePath(), updateNode.isRecursive() });
+							} else {
+								localManager.saveNode(updateNode.getNode(), updateNode.isUpdateNodeValue());
+								addNotifyTask(session, "saveNode", new Object[] { updateNode.getNode(), updateNode.isUpdateNodeValue() });
+							}
 						}
 					}
 				}
