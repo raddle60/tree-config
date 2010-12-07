@@ -31,7 +31,8 @@ public interface TreeConfigClient extends TreeConfigManager {
 	public void bindInitialPushNodes(TreeConfigPath path , boolean recursive);
 	
 	/**
-	 * 绑定连接时，初始化获取的节点。第一次连接和每次异常断开再连接时，都会重新从服务器端获取这些值
+	 * 绑定连接时，初始化获取的节点。第一次连接和每次异常断开再连接时，都会重新从服务器端获取这些值<br>
+	 * 服务端更具这个path，判断是否需要发送更新通知过来
 	 * @param path 初始化节点路径
 	 * @param recursive 是否递归获取
 	 */
