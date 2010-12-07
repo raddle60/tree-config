@@ -105,9 +105,6 @@ public class DefaultTreeConfigServer {
 			@Override
 			@SuppressWarnings("unchecked")
 			protected Object invokeMethod(final MethodInvoke methodInvoke) throws Exception {
-				if (CommandContext.getIoSession().getAttribute(ATTR_KEY_CLIENT_ID) == null && !"registerClient".equals(methodInvoke.getMethod())) {
-					throw new IllegalStateException("client is not registered, remote address " + CommandContext.getIoSession().getRemoteAddress());
-				}
 				logger.debug("invoke received , target:{} , method {}" , methodInvoke.getTarget().getClass(), methodInvoke.getMethod());
 				Object result = null;
 				if ("treeConfigManager".equals(methodInvoke.getTargetId())) {
