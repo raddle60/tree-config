@@ -55,7 +55,7 @@ import com.raddle.nio.mina.hessian.HessianEncoder;
  * bindDisconnectedDelNode<br>
  * bindInitialPushNodes<br>
  * bindInitialGetNodes<br>
- * 这四个方法，必须在connect之前完成，这四个方法只是加入列表，并未直接执行，在第一次连接时执行，所以在连接之后的操作，将无法执行
+ * 这四个方法，必须在connect之前完成，这四个方法只是加入列表，并未直接执行，在每次连接成功后执行，所以在连接之后的操作，将无法执行
  * @author xurong
  * 
  */
