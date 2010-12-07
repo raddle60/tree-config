@@ -401,4 +401,12 @@ public class TreeConfigClientBean implements TreeConfigManager {
 		return substituteMap;
 	}
 
+	public Set<String> getDisconnUpdateNodes() {
+		return disconnUpdateNodes;
+	}
+
+	public void setDisconnUpdateNodes(Set<String> disconnUpdateNodes) {
+		this.disconnUpdateNodes = disconnUpdateNodes;
+	}
+
 }
