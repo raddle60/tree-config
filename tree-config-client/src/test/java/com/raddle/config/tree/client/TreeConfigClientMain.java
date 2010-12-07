@@ -12,6 +12,8 @@ import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
 public class TreeConfigClientMain {
 	public static void main(String[] args) {
 		final DefaultTreeConfigClient client = new DefaultTreeConfigClient("127.0.0.1", 9877);
+		// 可以在这里初始化
+		// 但是为了获得连接的ip地址，所以放到了连接已后才初始化
 		// ///////////////////////
 		client.setListener(new TreeConfigClientListener() {
 			private boolean init = false;
