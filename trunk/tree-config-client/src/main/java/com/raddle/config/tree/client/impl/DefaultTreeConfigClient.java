@@ -4,6 +4,7 @@
 package com.raddle.config.tree.client.impl;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Deque;
@@ -84,6 +85,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private static final Set<String> updateMethodSet = new HashSet<String>();
 	private boolean closing = false;
 	private AtomicInteger shutdownCount = new AtomicInteger(0);
+	private boolean isRegistered = false;
 	private AbstractInvokeCommandHandler commandHandler = null;
 	static {
 		updateMethodSet.add("saveNode");
@@ -168,6 +170,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				@Override
 				public void sessionCreated(IoSession session) throws Exception {
 					logger.debug("Session created , remote address [{}] .", session.getRemoteAddress());
+					isRegistered = false;
 					RemoteConfigManager remoteConfigManager = new RemoteConfigManager(session);
 					remoteConfigManager.setTimeoutSeconds(invokeTimeoutSeconds);
 					remoteManager = remoteConfigManager;
@@ -234,15 +237,25 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				public void run() {
 					shutdownCount.incrementAndGet();
 					while (!closing && true) {
-						InvokeCommand command = null;
+						while (!closing && !isRegistered) {
+							try {
+								Thread.sleep(500);
+							} catch (InterruptedException e) {
+								throw new RuntimeException(e.getMessage(), e);
+							}
+						}
 						synchronized (notifyTask) {
-							while(notifyTask.size() > 0){
-								command = notifyTask.pollFirst();
+							while(notifyTask.size() > 0 && remoteManager != null){
+								InvokeCommand command = notifyTask.pollFirst();
 								try {
-									InvokeUtils.invokeMethod(remoteManager, command.getMethod(), command.getArgs());
+									try {
+										InvokeUtils.invokeMethod(remoteManager, command.getMethod(), command.getArgs());
+									} catch (InvocationTargetException e) {
+										throw e.getTargetException();
+									}
 								} catch (RemoteExecuteException e) {
 									// 远端的异常，忽略
-								} catch (Exception e) {
+								} catch (Throwable e) {
 									logger.error(e.getMessage(), e);
 									// 失败了放回队列头，重新发送。
 									notifyTask.addFirst(command);

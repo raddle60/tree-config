@@ -1,16 +1,45 @@
 package com.raddle.config.tree.client;
 
-import org.apache.mina.core.session.IoSession;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
-import com.raddle.config.tree.client.impl.DefaultTreeConfigClient;
-import com.raddle.config.tree.client.impl.TreeConfigClientListener;
-import com.raddle.config.tree.remote.utils.IpUtils;
-import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
+import com.raddle.config.tree.client.impl.TreeConfigClientBean;
 
 public class TreeConfigClientMain {
 	public static void main(String[] args) {
+		TreeConfigClientBean client = new TreeConfigClientBean();
+		client.setServerIp("127.0.0.1");
+		client.setServerPort(9877);
+		String localIp = null;
+		try {
+			localIp = InetAddress.getLocalHost().getHostAddress();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		}
+		client.getSubstituteMap().put("localIp", localIp);
+		client.addProvidedNode("testing/client/#localIp#");
+		client.addDisconnDeleteNode("testing/client/#localIp#/todel");
+		///// 
+		client.init();
+		// 初始化节点
+		DefaultConfigNode clientNode = new DefaultConfigNode();
+		clientNode.setNodePath(new DefaultConfigPath("testing/client/" + localIp));
+		clientNode.setAttributeValue("isConnected", true);
+		client.saveNode(clientNode, true);
+		//
+		DefaultConfigNode delNode = new DefaultConfigNode();
+		delNode.setNodePath(new DefaultConfigPath("testing/client/" + localIp + "/todel"));
+		delNode.setAttributeValue("xxx", "fff");
+		client.saveNode(delNode, true);
+		try {
+			Thread.sleep(10 * 1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		client.destroy();
+		/*
 		final DefaultTreeConfigClient client = new DefaultTreeConfigClient("127.0.0.1", 9877);
 		// 可以在这里初始化
 		// 但是为了获得连接的ip地址，所以放到了连接已后才初始化
@@ -68,6 +97,6 @@ public class TreeConfigClientMain {
 			e.printStackTrace();
 		}
 		client.close();
-		System.out.println();
+		*/
 	}
 }
