@@ -22,17 +22,18 @@ public class TreeConfigClientMain {
 				configPath.setSplitPath("testing/client/" + IpUtils.getIpAddress(session.getLocalAddress()));
 				// 只初始化一次
 				if (!init) {
-					// 待更新的节点
+					// 初始化节点
 					DefaultConfigNode clientNode = new DefaultConfigNode();
 					clientNode.setNodePath(configPath);
 					clientNode.setAttributeValue("isConnected", true);
 					client.getLocalManager().saveNode(clientNode, true);
-					client.bindInitialPushNodes(clientNode.getNodePath(), true);
-					// 待删除的节点
+					//
 					DefaultConfigNode delNode = new DefaultConfigNode();
 					delNode.setNodePath(new DefaultConfigPath("testing/client/" + IpUtils.getIpAddress(session.getLocalAddress()) + "/todel"));
 					delNode.setAttributeValue("xxx", "fff");
 					client.getLocalManager().saveNode(delNode, true);
+					// 推送的节点
+					client.bindInitialPushNodes(clientNode.getNodePath(), true);
 					client.bindInitialPushNodes(delNode.getNodePath(), true);
 					// 绑定初始化
 					// ////////////////////////
