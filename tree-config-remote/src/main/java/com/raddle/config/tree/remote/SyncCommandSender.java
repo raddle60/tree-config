@@ -72,7 +72,7 @@ public class SyncCommandSender {
 		// 等待结果返回
 		synchronized (ret) {
 			try {
-				ret.wait(timeoutSeconds * 1000 + 500);
+				ret.wait(timeoutSeconds * 1000 + 1500);
 			} catch (InterruptedException e) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("waiting result for command interrupted , target:{} , method:{} , args :{}" , new Object[] { targetId, method, ReflectToStringBuilder.reflectToString(args) });
