@@ -85,7 +85,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 	private static final Set<String> updateMethodSet = new HashSet<String>();
 	private boolean closing = false;
 	private AtomicInteger shutdownCount = new AtomicInteger(0);
-	private boolean isRegistered = false;
+	private boolean isNotifyRegistered = false;
 	private AbstractInvokeCommandHandler commandHandler = null;
 	static {
 		updateMethodSet.add("saveNode");
@@ -170,7 +170,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				@Override
 				public void sessionCreated(IoSession session) throws Exception {
 					logger.debug("Session created , remote address [{}] .", session.getRemoteAddress());
-					isRegistered = false;
+					isNotifyRegistered = false;
 					RemoteConfigManager remoteConfigManager = new RemoteConfigManager(session);
 					remoteConfigManager.setTimeoutSeconds(invokeTimeoutSeconds);
 					remoteManager = remoteConfigManager;
@@ -237,7 +237,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				public void run() {
 					shutdownCount.incrementAndGet();
 					while (!closing && true) {
-						while (!closing && !isRegistered) {
+						while (!closing && !isNotifyRegistered) {
 							try {
 								Thread.sleep(500);
 							} catch (InterruptedException e) {
@@ -610,6 +610,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				// 绑定接收通知的节点
 				logger.debug("binding listening nodes");
 				syncSender.sendCommand("treeConfigBinder", "bindlisteningNodes", new Object[] { initialGetNodes }, invokeTimeoutSeconds);
+				isNotifyRegistered = true;
 				// 设置sever上的节点值
 				logger.debug("setting push nodes");
 				List<TreeConfigNode> pushNodes = new LinkedList<TreeConfigNode>();
