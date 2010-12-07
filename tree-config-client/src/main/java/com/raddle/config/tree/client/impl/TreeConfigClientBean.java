@@ -142,7 +142,7 @@ public class TreeConfigClientBean implements TreeConfigManager {
 											} else if ("date".equals(type)) {
 												try {
 													if (svalue.length() > 10) {
-														value = DateUtils.parseDate(svalue, new String[] { "yyyy-M-d H:m:s", "yyyy-MM-dd HH:mm:ss" });
+														value = DateUtils.parseDate(svalue, new String[] { "yyyy-M-d H:m:s", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm:ss.SSS" });
 													} else {
 														value = DateUtils.parseDate(svalue, new String[] { "yyyy-M-d", "yyyy-MM-dd" });
 													}

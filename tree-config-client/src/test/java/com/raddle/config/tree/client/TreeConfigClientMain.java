@@ -25,14 +25,15 @@ public class TreeConfigClientMain {
 		client.addProvidedNode("testing/client/#localIp#");
 		client.addDisconnDeleteNode("testing/client/#localIp#/todel");
 		client.addDisconnUpdateNode("testing/client/#localIp#@isConnected=false^boolean");
-		client.addDisconnUpdateNode("testing/client/#localIp#="+DateFormatUtils.format(new Date(), "yyyy-M-d HH:mm:ss")+"^date");
+		client.addDisconnUpdateNode("testing/client/#localIp#="+DateFormatUtils.format(new Date(), "yyyy-M-d HH:mm:ss.SSS")+"^date");
 		///// 
 		client.init();
 		// 初始化节点
 		DefaultConfigNode clientNode = new DefaultConfigNode();
 		clientNode.setNodePath(new DefaultConfigPath("testing/client/" + localIp));
 		clientNode.setAttributeValue("isConnected", true);
-		client.saveNode(clientNode, false);
+		clientNode.setValue(new Date());
+		client.saveNode(clientNode, true);
 		//
 		DefaultConfigNode delNode = new DefaultConfigNode();
 		delNode.setNodePath(new DefaultConfigPath("testing/client/" + localIp + "/todel"));
