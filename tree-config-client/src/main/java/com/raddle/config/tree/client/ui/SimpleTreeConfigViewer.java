@@ -228,7 +228,7 @@ public class SimpleTreeConfigViewer {
 		} else {
 			StringBuilder sb = new StringBuilder();
 			if(configNode.getValue() != null){
-				sb.append(ReflectToStringBuilder.reflectToString(configNode.getValue()));
+				sb.append(ReflectToStringBuilder.reflectToString(configNode.getValue())).append("\n");
 			}
 			for (TreeConfigAttribute attribute : configNode.getAttributes()) {
 				sb.append(attribute.getName()).append(" : ").append(ReflectToStringBuilder.reflectToString(attribute.getValue())).append("\n");
