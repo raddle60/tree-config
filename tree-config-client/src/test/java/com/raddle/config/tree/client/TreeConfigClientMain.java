@@ -22,7 +22,7 @@ public class TreeConfigClientMain {
 			e.printStackTrace();
 		}
 		client.getSubstituteMap().put("localIp", localIp);
-		client.addProvidedNode("testing/client/#localIp#");
+		client.addProvidedNode("testing/client/#localIp#,recursive");
 		client.addDisconnDeleteNode("testing/client/#localIp#/todel");
 		client.addDisconnUpdateNode("testing/client/#localIp#@isConnected=false^boolean");
 		client.addDisconnUpdateNode("testing/client/#localIp#="+DateFormatUtils.format(new Date(), "yyyy-M-d HH:mm:ss.SSS")+"^date");
