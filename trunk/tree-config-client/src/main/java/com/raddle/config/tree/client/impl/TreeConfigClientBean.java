@@ -4,16 +4,24 @@
 package com.raddle.config.tree.client.impl;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.text.ParseException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.time.DateUtils;
 import org.apache.mina.core.session.IoSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigManager;
@@ -29,6 +37,8 @@ import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
  * 
  */
 public class TreeConfigClientBean implements TreeConfigManager {
+	private static final Logger logger = LoggerFactory.getLogger(TreeConfigClientBean.class);
+	private static final Pattern xpath = Pattern.compile("([^@\\^=]+)(?:@([^@\\^=]+))?=([^@\\^=]+)(?:\\^(\\w+))?");
 	private String clientId = UUID.randomUUID().toString();
 	private String serverIp;
 	private int serverPort = -1;
@@ -43,6 +53,10 @@ public class TreeConfigClientBean implements TreeConfigManager {
 	 * 本身提供的节点，在每次连接后，上传本地的节点值
 	 */
 	private Set<String> providedNodes = new HashSet<String>();
+	/**
+	 * 断开更新的节点，当断开服务器后，服务器更新这些节点
+	 */
+	private Set<String> disconnUpdateNodes = new HashSet<String>();
 	/**
 	 * 断开删除的节点，当断开服务器后，服务器删除这些节点
 	 */
@@ -100,6 +114,56 @@ public class TreeConfigClientBean implements TreeConfigManager {
 								client.bindInitialPushNodes(nodePath, recursive);
 							}
 						}
+						if (disconnUpdateNodes != null) {
+							if (disconnUpdateNodes != null) {
+								for (String updateNode : disconnUpdateNodes) {
+									String substituted = substitute(updateNode);
+									Matcher matcher = xpath.matcher(substituted);
+									if (matcher.matches()) {
+										DefaultConfigNode node = new DefaultConfigNode();
+										node.setNodePath(new DefaultConfigPath(matcher.group(1)));
+										Serializable value = matcher.group(3);
+										if (matcher.group(4) != null) {
+											String type = matcher.group(4);
+											String svalue = matcher.group(3);
+											// 转类型
+											if ("int".equals(type)) {
+												value = new Integer(svalue);
+											} else if ("int".equals(type)) {
+												value = new Long(svalue);
+											} else if ("float".equals(type)) {
+												value = new Float(svalue);
+											} else if ("double".equals(type)) {
+												value = new Double(svalue);
+											} else if ("decimal".equals(type)) {
+												value = new BigDecimal(svalue);
+											} else if ("boolean".equals(type)) {
+												value = new Boolean(svalue);
+											} else if ("date".equals(type)) {
+												try {
+													if (svalue.length() > 10) {
+														value = DateUtils.parseDate(svalue, new String[] { "yyyy-M-d H:m:s", "yyyy-MM-dd HH:mm:ss" });
+													} else {
+														value = DateUtils.parseDate(svalue, new String[] { "yyyy-M-d", "yyyy-MM-dd" });
+													}
+												} catch (ParseException e) {
+													logger.warn(e.getMessage(), e);
+												}
+											}
+										}
+										if (matcher.group(2) != null) {
+											node.setAttributeValue(matcher.group(2), value);
+											client.bindDisconnectedNode(node, false);
+										} else {
+											node.setValue(value);
+											client.bindDisconnectedNode(node, true);
+										}
+									} else {
+										logger.warn("wrong update path [{}]", substituted);
+									}
+								}
+							}
+						}
 						// 断开删除的节点
 						if (disconnDeleteNodes != null) {
 							for (String deleteNode : disconnDeleteNodes) {
@@ -149,7 +213,8 @@ public class TreeConfigClientBean implements TreeConfigManager {
 	}
 
 	/**
-	 * 感兴趣的节点，接收这些节点的更新通知
+	 * 感兴趣的节点，接收这些节点的更新通知 格式：<br>
+	 * /xx/xx,recursive
 	 * 
 	 * @param path
 	 */
@@ -158,7 +223,8 @@ public class TreeConfigClientBean implements TreeConfigManager {
 	}
 
 	/**
-	 * 本身提供的节点，在每次连接后，上传本地的节点值
+	 * 本身提供的节点，在每次连接后，上传本地的节点值 格式：<br>
+	 * /xx/xx,recursive
 	 * 
 	 * @param path
 	 */
@@ -167,12 +233,26 @@ public class TreeConfigClientBean implements TreeConfigManager {
 	}
 
 	/**
-	 * 断开删除的节点，当断开服务器后，服务器删除这些节点
+	 * 断开删除的节点，当断开服务器后，服务器删除这些节点 格式：<br>
+	 * /xx/xx,recursive
 	 * 
 	 * @param path
 	 */
 	public void addDisconnDeleteNode(String path) {
 		disconnDeleteNodes.add(path);
+	}
+
+	/**
+	 * 断开更新的节点，当断开服务器后，服务器更新这些节点<br>
+	 * 格式：<br>
+	 * /xx/xx=value^type<br>
+	 * /xx/xx@prop=value^type<br>
+	 * #type不填默认是String，type可选值为:int,long,float,double,decimal,boolean,date
+	 * 
+	 * @param pathedValue
+	 */
+	public void addDisconnUpdateNode(String pathedValue) {
+		disconnUpdateNodes.add(pathedValue);
 	}
 
 	@Override

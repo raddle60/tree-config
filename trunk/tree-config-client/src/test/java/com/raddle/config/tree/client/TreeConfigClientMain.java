@@ -2,6 +2,9 @@ package com.raddle.config.tree.client;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Date;
+
+import org.apache.commons.lang.time.DateFormatUtils;
 
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
@@ -21,20 +24,22 @@ public class TreeConfigClientMain {
 		client.getSubstituteMap().put("localIp", localIp);
 		client.addProvidedNode("testing/client/#localIp#");
 		client.addDisconnDeleteNode("testing/client/#localIp#/todel");
+		client.addDisconnUpdateNode("testing/client/#localIp#@isConnected=false^boolean");
+		client.addDisconnUpdateNode("testing/client/#localIp#="+DateFormatUtils.format(new Date(), "yyyy-M-d HH:mm:ss")+"^date");
 		///// 
 		client.init();
 		// 初始化节点
 		DefaultConfigNode clientNode = new DefaultConfigNode();
 		clientNode.setNodePath(new DefaultConfigPath("testing/client/" + localIp));
 		clientNode.setAttributeValue("isConnected", true);
-		client.saveNode(clientNode, true);
+		client.saveNode(clientNode, false);
 		//
 		DefaultConfigNode delNode = new DefaultConfigNode();
 		delNode.setNodePath(new DefaultConfigPath("testing/client/" + localIp + "/todel"));
 		delNode.setAttributeValue("xxx", "fff");
-		client.saveNode(delNode, true);
+		client.saveNode(delNode, false);
 		try {
-			Thread.sleep(10 * 1000);
+			Thread.sleep(5 * 1000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
