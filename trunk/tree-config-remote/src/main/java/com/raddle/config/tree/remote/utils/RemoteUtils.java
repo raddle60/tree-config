@@ -57,7 +57,7 @@ public class RemoteUtils {
 				// 等待结果返回
 				synchronized (pingWaitor) {
 					try {
-						pingWaitor.wait(pingTimeoutSeconds * 1000 + 500);
+						pingWaitor.wait(pingTimeoutSeconds * 1000 + 1500);
 					} catch (InterruptedException e) {
 						logger.warn("waiting for ping interrupted");
 					}
