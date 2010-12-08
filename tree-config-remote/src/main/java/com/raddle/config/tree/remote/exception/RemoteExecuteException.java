@@ -14,33 +14,31 @@ public class RemoteExecuteException extends RuntimeException {
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-
-	/**
-	 * 
-	 */
-	public RemoteExecuteException() {
-	}
+	
+	private String type;
 
 	/**
 	 * @param message
 	 */
-	public RemoteExecuteException(String message) {
+	public RemoteExecuteException(String type, String message) {
 		super(message);
-	}
-
-	/**
-	 * @param cause
-	 */
-	public RemoteExecuteException(Throwable cause) {
-		super(cause);
+		this.type = type;
 	}
 
 	/**
 	 * @param message
 	 * @param cause
 	 */
-	public RemoteExecuteException(String message, Throwable cause) {
+	public RemoteExecuteException(String type, String message, Throwable cause) {
 		super(message, cause);
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
 	}
 
 }
