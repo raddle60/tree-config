@@ -248,12 +248,17 @@ public class DefaultTreeConfigServer {
 
 			@Override
 			protected String getCommandQueue(MethodInvoke methodInvoke) {
-				// 全部操作并发执行
-				return null;
+				// 单个session同步更新
+				if ("treeConfigManager".equals(methodInvoke.getTargetId()) && updateMethodSet.contains(methodInvoke.getMethod())) {
+					return CommandContext.getIoSession().getId() + "";
+				} else {
+					return null;
+				}
 			}
 
 		};
-		commandHandler.setMaxTaskThreads(50);
+		commandHandler.setMaxExecuteThreads(50);
+		commandHandler.setMaxQueueThreads(100);
 		acceptor.setHandler(commandHandler);
 		logger.info("initialize local configuration");
 		DefaultConfigNode serverConfigNode = new DefaultConfigNode();
