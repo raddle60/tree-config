@@ -40,7 +40,6 @@ import com.raddle.config.tree.client.TreeConfigClient;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.RemoteConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
-import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.remote.utils.RemoteUtils;
 import com.raddle.config.tree.utils.ExceptionUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
@@ -246,8 +245,6 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 									} catch (InvocationTargetException e) {
 										throw e.getTargetException();
 									}
-								} catch (RemoteExecuteException e) {
-									// 远端的异常，忽略
 								} catch (Throwable e) {
 									logger.error(e.getMessage(), e);
 									// 失败了放回队列头，重新发送。
