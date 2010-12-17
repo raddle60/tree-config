@@ -50,11 +50,11 @@ import com.raddle.config.tree.remote.utils.RemoteUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.config.tree.utils.TreeUtils;
+import com.raddle.nio.codec.impl.HessianCodec;
 import com.raddle.nio.mina.cmd.CommandContext;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
 import com.raddle.nio.mina.cmd.invoke.InvokeMethod;
-import com.raddle.nio.mina.hessian.HessianDecoder;
-import com.raddle.nio.mina.hessian.HessianEncoder;
+import com.raddle.nio.mina.codec.ChainCodecFactory;
 
 /**
  * @author xurong
@@ -98,7 +98,9 @@ public class DefaultTreeConfigServer {
 		logger.info("setting reader idle time {} seconds ", readerIdleSeconds);
 		acceptor.getSessionConfig().setReaderIdleTime(readerIdleSeconds);
 		// hessain序列化
-		acceptor.getFilterChain().addLast("codec", new ProtocolCodecFilter(new HessianEncoder(), new HessianDecoder()));
+		ChainCodecFactory chainCodecFactory = new ChainCodecFactory();
+		chainCodecFactory.addFirst(new HessianCodec());
+		acceptor.getFilterChain().addFirst("codec", new ProtocolCodecFilter(chainCodecFactory));
 		// 方法调用
 		commandHandler = new AbstractInvokeCommandHandler() {
 
