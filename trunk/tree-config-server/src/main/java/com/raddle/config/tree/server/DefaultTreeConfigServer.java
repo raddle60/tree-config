@@ -307,11 +307,7 @@ public class DefaultTreeConfigServer {
 													try {
 														while (clientContext.getNotifyTasks().size() > 0) {
 															notifyClientTask = clientContext.getNotifyTasks().pollFirst();
-															try {
-																sender.sendCommand(NOTIFY_CLIENT_TARGET_ID, notifyClientTask.getMethod(), notifyClientTask.getArgs(), invokeTimeoutSeconds);
-															} catch (RemoteExecuteException e) {
-																// 远端的异常，忽略
-															}
+															sender.sendCommand(NOTIFY_CLIENT_TARGET_ID, notifyClientTask.getMethod(), notifyClientTask.getArgs(), invokeTimeoutSeconds);
 														}
 													} catch (Exception e) {
 														logger.error(e.getMessage(), e);
