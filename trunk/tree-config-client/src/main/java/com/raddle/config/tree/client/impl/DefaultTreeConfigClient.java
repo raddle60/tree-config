@@ -44,11 +44,11 @@ import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.remote.utils.RemoteUtils;
 import com.raddle.config.tree.utils.ExceptionUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
+import com.raddle.nio.codec.impl.HessianCodec;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
 import com.raddle.nio.mina.cmd.invoke.InvokeCommand;
 import com.raddle.nio.mina.cmd.invoke.InvokeMethod;
-import com.raddle.nio.mina.hessian.HessianDecoder;
-import com.raddle.nio.mina.hessian.HessianEncoder;
+import com.raddle.nio.mina.codec.ChainCodecFactory;
 
 /**
  * 注意：client只能连接一次，用完后一定要close，close会关闭所有连接和处理线程<br>
@@ -118,7 +118,9 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			connector = new NioSocketConnector();
 			logger.info("setting connect timeout {}ms", connectTimeoutMs);
 			connector.setConnectTimeoutMillis(connectTimeoutMs);
-			connector.getFilterChain().addFirst("binaryCodec", new ProtocolCodecFilter(new HessianEncoder(), new HessianDecoder()));
+			ChainCodecFactory chainCodecFactory = new ChainCodecFactory();
+			chainCodecFactory.addFirst(new HessianCodec());
+			connector.getFilterChain().addFirst("codec", new ProtocolCodecFilter(chainCodecFactory));
 			// 处理接收的命令和响应
 			commandHandler = new AbstractInvokeCommandHandler() {
 				@Override
