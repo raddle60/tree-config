@@ -46,7 +46,7 @@ import com.raddle.config.tree.utils.ExceptionUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
 import com.raddle.nio.mina.cmd.invoke.InvokeCommand;
-import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
+import com.raddle.nio.mina.cmd.invoke.InvokeMethod;
 import com.raddle.nio.mina.hessian.HessianDecoder;
 import com.raddle.nio.mina.hessian.HessianEncoder;
 
@@ -122,7 +122,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			// 处理接收的命令和响应
 			commandHandler = new AbstractInvokeCommandHandler() {
 				@Override
-				protected Object invokeMethod(MethodInvoke methodInvoke) throws Exception {
+				protected Object invokeMethod(InvokeMethod methodInvoke) throws Exception {
 					logger.debug("invoke received , target:{} , method {}" , methodInvoke.getTarget().getClass(), methodInvoke.getMethod());
 					Object result = null;
 					if(listener != null){
@@ -180,7 +180,7 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				}
 
 				@Override
-				protected String getCommandQueue(MethodInvoke methodInvoke) {
+				protected String getCommandQueue(InvokeMethod methodInvoke) {
 					if(updateMethodSet.contains(methodInvoke.getMethod())){
 						// 所有更新操作在同一个队列中执行
 						return "update";

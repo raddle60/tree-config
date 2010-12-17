@@ -52,7 +52,7 @@ import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.config.tree.utils.TreeUtils;
 import com.raddle.nio.mina.cmd.CommandContext;
 import com.raddle.nio.mina.cmd.invoke.AbstractInvokeCommandHandler;
-import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
+import com.raddle.nio.mina.cmd.invoke.InvokeMethod;
 import com.raddle.nio.mina.hessian.HessianDecoder;
 import com.raddle.nio.mina.hessian.HessianEncoder;
 
@@ -104,7 +104,7 @@ public class DefaultTreeConfigServer {
 
 			@Override
 			@SuppressWarnings("unchecked")
-			protected Object invokeMethod(final MethodInvoke methodInvoke) throws Exception {
+			protected Object invokeMethod(final InvokeMethod methodInvoke) throws Exception {
 				logger.debug("invoke received , target:{} , method {}" , methodInvoke.getTarget().getClass(), methodInvoke.getMethod());
 				Object result = null;
 				if ("treeConfigManager".equals(methodInvoke.getTargetId())) {
@@ -247,7 +247,7 @@ public class DefaultTreeConfigServer {
 			}
 
 			@Override
-			protected String getCommandQueue(MethodInvoke methodInvoke) {
+			protected String getCommandQueue(InvokeMethod methodInvoke) {
 				// 单个session同步更新
 				if ("treeConfigManager".equals(methodInvoke.getTargetId()) && updateMethodSet.contains(methodInvoke.getMethod())) {
 					return CommandContext.getIoSession().getId() + "";

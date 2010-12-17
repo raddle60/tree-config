@@ -28,7 +28,7 @@ import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.api.TreeConfigPath;
 import com.raddle.config.tree.remote.utils.IpUtils;
-import com.raddle.nio.mina.cmd.invoke.MethodInvoke;
+import com.raddle.nio.mina.cmd.invoke.InvokeMethod;
 
 /**
  * 方便在sping中使用，简化DefaultTreeConfigClient的初始化操作
@@ -185,7 +185,7 @@ public class TreeConfigClientBean implements TreeConfigManager {
 				}
 
 				@Override
-				public void commandReceived(MethodInvoke methodInvoke) {
+				public void commandReceived(InvokeMethod methodInvoke) {
 				}
 
 			});
