@@ -403,6 +403,7 @@ public class DefaultTreeConfigServer {
 								allTaskCount += clientContext.getNotifyTasks().size();
 							}
 						}
+						allTaskCount+=taskExecutor.getActiveCount();
 						serverStateNode.setAttributeValue("任务执行状态（当前/总数）", taskExecutor.getActiveCount() + "/" + allTaskCount);
 						serverStateNode.setAttributeValue("当前本地任务线程", taskExecutor.getPoolSize());
 					}
