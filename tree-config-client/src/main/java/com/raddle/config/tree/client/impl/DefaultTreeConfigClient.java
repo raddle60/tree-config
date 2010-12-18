@@ -29,6 +29,7 @@ import org.apache.mina.transport.socket.nio.NioSocketConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.raddle.concurrent.CatchedRunable;
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.DefaultUpdateNode;
@@ -201,10 +202,10 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 				logger.warn("connecting to {}:{} failed." , serverIp, serverPort);
 			}
 			logger.info("ping server per {} seconds" , pingSeconds);
-			scheduleExecutor.scheduleWithFixedDelay(new Runnable() {
+			scheduleExecutor.scheduleWithFixedDelay(new CatchedRunable() {
 				
 				@Override
-				public void run() {
+				public void runInCatch() {
 					if(connector.getManagedSessionCount() > 0){
 						IoSession session = connector.getManagedSessions().values().iterator().next();
 						RemoteUtils.pingAndCloseIfFailed(session);
@@ -213,10 +214,10 @@ public class DefaultTreeConfigClient implements TreeConfigClient {
 			}, pingSeconds, pingSeconds, TimeUnit.SECONDS);
 			// 保持连接
 			logger.info("starting reconnect thread");
-			scheduleExecutor.scheduleWithFixedDelay(new Runnable(){
+			scheduleExecutor.scheduleWithFixedDelay(new CatchedRunable(){
 
 				@Override
-				public void run() {
+				public void runInCatch() {
 					// 断开连接后重连
 					if (!closing && connector != null && connector.getManagedSessionCount() == 0) {
 						try {

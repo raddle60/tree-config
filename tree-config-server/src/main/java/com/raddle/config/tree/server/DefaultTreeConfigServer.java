@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.time.DateFormatUtils;
 import org.apache.mina.core.service.IoAcceptor;
 import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.core.session.IoSession;
@@ -37,6 +36,7 @@ import org.omg.CORBA.BooleanHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.raddle.concurrent.CatchedRunable;
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.DefaultNodeSelector;
@@ -72,11 +72,13 @@ public class DefaultTreeConfigServer {
 	private IoAcceptor acceptor = new NioSocketAcceptor();
 	private TreeConfigManager localManager = new MemoryConfigManager();
 	private int port = 9877;
-	private int maxTaskThreads = 50;
+	private int maxSendThreads = 50;
+	private int maxReceiveThreads = 50;
+	private int maxQueueThreads = 50;
 	private int failedResendSeconds = 10;
 	private ThreadPoolExecutor taskExecutor = null;
 	private int pingSeconds = 60;
-	private ScheduledExecutorService pingSchedule = null;
+	private ScheduledExecutorService scheduleService = null;
 	private Map<String, ClientContext> clientMap = new Hashtable<String, ClientContext>();
 	private Object notifyWaiting = new Object();
 	private AbstractInvokeCommandHandler commandHandler = null;
@@ -233,7 +235,7 @@ public class DefaultTreeConfigServer {
 				///
 				DefaultConfigNode clientCount = new DefaultConfigNode();
 				clientCount.setNodePath(new DefaultConfigPath("/树形配置服务器/状态/客戶端"));
-				clientCount.setValue(acceptor.getManagedSessionCount()+"个连接");
+				clientCount.setValue(acceptor.getManagedSessionCount());
 				localManager.saveNode(clientCount, true);
 				addNotifyTask(null, "saveNode", new Object[] { clientCount, true });
 				// 刪除客戶端
@@ -261,13 +263,13 @@ public class DefaultTreeConfigServer {
 				/////
 				DefaultConfigNode clientCount = new DefaultConfigNode();
 				clientCount.setNodePath(new DefaultConfigPath("/树形配置服务器/状态/客戶端"));
-				clientCount.setValue(acceptor.getManagedSessionCount()+"个连接");
+				clientCount.setValue(acceptor.getManagedSessionCount());
 				localManager.saveNode(clientCount, true);
 				addNotifyTask(null, "saveNode", new Object[] { clientCount, true });
 				// 添加客戶端
 				DefaultConfigNode clientNode = new DefaultConfigNode();
 				clientNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态/客戶端/" + IpUtils.getIpAndPort(session.getRemoteAddress())));
-				clientNode.setAttributeValue("连接时间", DateFormatUtils.format(new Date(), "yyyy-MM-dd HH:mm:ss"));
+				clientNode.setAttributeValue("连接时间", new Date());
 				localManager.saveNode(clientNode, false);
 				addNotifyTask(null, "saveNode", new Object[] { clientNode, false });
 			}
@@ -283,23 +285,25 @@ public class DefaultTreeConfigServer {
 			}
 
 		};
-		commandHandler.setMaxExecuteThreads(50);
-		commandHandler.setMaxQueueThreads(100);
+		commandHandler.setMaxExecuteThreads(maxReceiveThreads);
+		commandHandler.setMaxQueueThreads(maxQueueThreads);
 		acceptor.setHandler(commandHandler);
 		logger.info("initialize local configuration");
 		DefaultConfigNode serverConfigNode = new DefaultConfigNode();
 		serverConfigNode.setNodePath(new DefaultConfigPath("/树形配置服务器/设置"));
 		serverConfigNode.setAttributeValue("IP地址", getLocalHostIps());
 		serverConfigNode.setAttributeValue("监听端口号", port);
-		serverConfigNode.setAttributeValue("读超时时间", readerIdleSeconds+"秒");
-		serverConfigNode.setAttributeValue("远程调用超时时间", invokeTimeoutSeconds+"秒");
+		serverConfigNode.setAttributeValue("读超时时间(秒)", readerIdleSeconds);
+		serverConfigNode.setAttributeValue("远程调用超时时间(秒)", invokeTimeoutSeconds);
 		serverConfigNode.setAttributeValue("本地配置类", localManager.getClass().getName());
-		serverConfigNode.setAttributeValue("最大任务线程", maxTaskThreads);
-		serverConfigNode.setAttributeValue("通知失败重试间隔", failedResendSeconds + "秒");
+		serverConfigNode.setAttributeValue("最大本地任务线程", maxSendThreads);
+		serverConfigNode.setAttributeValue("最大接收线程", maxReceiveThreads);
+		serverConfigNode.setAttributeValue("最大队列线程", maxQueueThreads);
+		serverConfigNode.setAttributeValue("通知失败重试间隔(秒)", failedResendSeconds);
 		localManager.saveNode(serverConfigNode, false);
 		DefaultConfigNode serverStateNode = new DefaultConfigNode();
 		serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
-		serverStateNode.setAttributeValue("启动时间", DateFormatUtils.format(new Date(), "yyyy-MM-dd HH:mm:ss"));
+		serverStateNode.setAttributeValue("启动时间", new Date());
 		serverStateNode.setAttributeValue("任务执行状态（当前/总数）", "0/0");
 		serverStateNode.setAttributeValue("客户端连接数", 0);
 		localManager.saveNode(serverStateNode, false);
@@ -308,7 +312,7 @@ public class DefaultTreeConfigServer {
 			acceptor.bind(new InetSocketAddress(port));
 			logger.info("server listening on {}", port);
 			logger.info("starting task executor");
-			taskExecutor = new ThreadPoolExecutor(0, maxTaskThreads, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+			taskExecutor = new ThreadPoolExecutor(0, maxSendThreads, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
 			logger.info("starting updating notify thread");
 			Thread notifyThread = new Thread(){
 				@Override
@@ -355,22 +359,6 @@ public class DefaultTreeConfigServer {
 									logger.error(e.getMessage(), e);
 								}
 							}
-							// 更新任务执行状态
-							DefaultConfigNode serverStateNode = new DefaultConfigNode();
-							serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
-							int allTaskCount = 0;
-							for (String clientId : clientMap.keySet()) {
-								ClientContext clientContext = clientMap.get(clientId);
-								if (clientContext != null) {
-									allTaskCount += clientContext.getNotifyTasks().size();
-								}
-							}
-							String taskState = taskExecutor.getActiveCount() + "/" + allTaskCount;
-							if(!ObjectUtils.equals(taskState, localManager.getAttributeValue(new DefaultConfigPath("/树形配置服务器/状态"), "任务执行状态（当前/总数）"))){
-								serverStateNode.setAttributeValue("任务执行状态（当前/总数）", taskExecutor.getActiveCount() + "/" + allTaskCount);
-								localManager.saveNode(serverStateNode, false);
-								addNotifyTask(null, "saveNode", new Object[]{serverStateNode, false});
-							}
 						} catch (Exception e) {
 							logger.error(e.getMessage(), e);
 						}
@@ -380,11 +368,11 @@ public class DefaultTreeConfigServer {
 			notifyThread.setDaemon(true);
 			notifyThread.start();
 			logger.info("ping client per {} seconds" , pingSeconds);
-			pingSchedule = Executors.newScheduledThreadPool(1);
-			pingSchedule.scheduleWithFixedDelay(new Runnable() {
+			scheduleService = Executors.newScheduledThreadPool(2);
+			scheduleService.scheduleWithFixedDelay(new CatchedRunable() {
 
 				@Override
-				public void run() {
+				public void runInCatch() {
 					for (String clientId : clientMap.keySet()) {
 						final ClientContext clientContext = clientMap.get(clientId);
 						if (clientContext != null) {
@@ -398,6 +386,43 @@ public class DefaultTreeConfigServer {
 					}
 				}
 			}, pingSeconds, pingSeconds, TimeUnit.SECONDS);
+			logger.info("check server state per {} seconds" , 1);
+			scheduleService.scheduleWithFixedDelay(new CatchedRunable() {
+
+				@Override
+				public void runInCatch() {
+					// 更新任务执行状态
+					DefaultConfigNode serverStateNode = new DefaultConfigNode();
+					serverStateNode.setNodePath(new DefaultConfigPath("/树形配置服务器/状态"));
+					if(taskExecutor != null){
+						// 当前任务数
+						int allTaskCount = 0;
+						for (String clientId : clientMap.keySet()) {
+							ClientContext clientContext = clientMap.get(clientId);
+							if (clientContext != null) {
+								allTaskCount += clientContext.getNotifyTasks().size();
+							}
+						}
+						serverStateNode.setAttributeValue("任务执行状态（当前/总数）", taskExecutor.getActiveCount() + "/" + allTaskCount);
+						serverStateNode.setAttributeValue("当前本地任务线程", taskExecutor.getPoolSize());
+					}
+					if(commandHandler != null){
+						if(commandHandler.getExecutorService() != null){
+							serverStateNode.setAttributeValue("当前接收线程", commandHandler.getExecutorService().getPoolSize());
+						}
+						if(commandHandler.getQueueExecutor() != null){
+							serverStateNode.setAttributeValue("当前队列线程", commandHandler.getQueueExecutor().getPoolSize());
+							serverStateNode.setAttributeValue("当前队列个数", commandHandler.getQueueExecutor().getQueueSize());
+						}
+					}
+					TreeConfigNode toUpdateNode = TreeUtils.getToUpdateNode(serverStateNode, localManager.getNode(serverStateNode.getNodePath()),
+							new BooleanHolder(false));
+					if (toUpdateNode != null) {
+						localManager.saveNode(toUpdateNode, false);
+						addNotifyTask(null, "saveNode", new Object[] { toUpdateNode, false });
+					}
+				}
+			}, 1, 1, TimeUnit.SECONDS);
 			logger.info("server start completed in {}ms " , System.currentTimeMillis() - startAt);
 		} catch (IOException e) {
 			logger.error("server start failed .", e);
@@ -465,9 +490,9 @@ public class DefaultTreeConfigServer {
 
 	public void shutdown() {
 		long startAt = System.currentTimeMillis();
-		if(pingSchedule != null){
+		if(scheduleService != null){
 			logger.info("shuting down ping schedule");
-			pingSchedule.shutdown();
+			scheduleService.shutdown();
 		}
 		if (taskExecutor != null) {
 			logger.info("shuting down task executor");
@@ -545,6 +570,38 @@ public class DefaultTreeConfigServer {
 
 	public void setPingSeconds(int pingSeconds) {
 		this.pingSeconds = pingSeconds;
+	}
+
+	public int getMaxSendThreads() {
+		return maxSendThreads;
+	}
+
+	public void setMaxSendThreads(int maxSendThreads) {
+		this.maxSendThreads = maxSendThreads;
+	}
+
+	public int getMaxReceiveThreads() {
+		return maxReceiveThreads;
+	}
+
+	public void setMaxReceiveThreads(int maxReceiveThreads) {
+		this.maxReceiveThreads = maxReceiveThreads;
+	}
+
+	public int getMaxQueueThreads() {
+		return maxQueueThreads;
+	}
+
+	public void setMaxQueueThreads(int maxQueueThreads) {
+		this.maxQueueThreads = maxQueueThreads;
+	}
+
+	public int getFailedResendSeconds() {
+		return failedResendSeconds;
+	}
+
+	public void setFailedResendSeconds(int failedResendSeconds) {
+		this.failedResendSeconds = failedResendSeconds;
 	}
 
 }
