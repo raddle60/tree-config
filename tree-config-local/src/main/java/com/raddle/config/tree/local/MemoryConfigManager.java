@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.ObjectUtils;
+
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
@@ -31,8 +33,10 @@ public class MemoryConfigManager implements TreeConfigManager,TreeConfigListenab
 		if(n != null){
 			for (String attributeName : attributeNames) {
 				TreeConfigAttribute old = n.getAttribute(attributeName);
-				n.removeAttribute(attributeName);
-				listener.attributeRemoved(n, old);
+				if(old != null){
+					n.removeAttribute(attributeName);
+					listener.attributeRemoved(n, old);
+				}
 			}
 		}
 	}
@@ -44,15 +48,19 @@ public class MemoryConfigManager implements TreeConfigManager,TreeConfigListenab
 			if(n.getChildren().size() > 0){
 				if(recursive){
 					DefaultConfigNode old = n.getParent().getChild(n.getNodePath().getLast());
-					n.getParent().removeChild(n.getNodePath().getLast());
-					listener.nodeRemoved(old);
+					if(old != null){
+						n.getParent().removeChild(n.getNodePath().getLast());
+						listener.nodeRemoved(old);
+					}
 				} else {
 					return false;
 				}
 			} else {
 				DefaultConfigNode old = n.getParent().getChild(n.getNodePath().getLast());
-				n.getParent().removeChild(n.getNodePath().getLast());
-				listener.nodeRemoved(old);
+				if(old != null){
+					n.getParent().removeChild(n.getNodePath().getLast());
+					listener.nodeRemoved(old);
+				}
 			}
 		}
 		return false;
@@ -74,16 +82,20 @@ public class MemoryConfigManager implements TreeConfigManager,TreeConfigListenab
 	public void saveAttribute(TreeConfigPath path, TreeConfigAttribute attribute) {
 		TreeConfigNode n = getNodeByPath(path, true);
 		Serializable oldValue = n.getAttributeValue(attribute.getName());
-		n.setAttributeValue(attribute.getName(), attribute.getValue());
-		listener.attributeValueChanged(n, n.getAttribute(attribute.getName()), attribute.getValue(), oldValue);
+		if(!ObjectUtils.equals(oldValue, attribute.getValue())){
+			n.setAttributeValue(attribute.getName(), attribute.getValue());
+			listener.attributeValueChanged(n, n.getAttribute(attribute.getName()), attribute.getValue(), oldValue);
+		}
 	}
 
 	@Override
 	public void saveAttributeValue(TreeConfigPath path, String attributeName, Serializable value) {
 		TreeConfigNode n = getNodeByPath(path, true);
 		Serializable oldValue = n.getAttributeValue(attributeName);
-		n.setAttributeValue(attributeName, value);
-		listener.attributeValueChanged(n, n.getAttribute(attributeName), value, oldValue);
+		if(!ObjectUtils.equals(oldValue, value)){
+			n.setAttributeValue(attributeName, value);
+			listener.attributeValueChanged(n, n.getAttribute(attributeName), value, oldValue);
+		}
 	}
 
 	@Override
@@ -92,15 +104,19 @@ public class MemoryConfigManager implements TreeConfigManager,TreeConfigListenab
 		// 如果节点已存在
 		if (updateNodeValue) {
 			Serializable oldValue = n.getValue();
-			// 更新节点值
-			n.setValue(node.getValue());
-			listener.nodeValueChanged(n, n.getValue(), oldValue);
+			if(!ObjectUtils.equals(oldValue, node.getValue())){
+				// 更新节点值
+				n.setValue(node.getValue());
+				listener.nodeValueChanged(n, n.getValue(), oldValue);
+			}
 		} 
 		// 更新属性值
 		for (TreeConfigAttribute attribute : node.getAttributes()) {
 			Serializable oldValue = n.getAttributeValue(attribute.getName());
-			n.setAttributeValue(attribute.getName(), attribute.getValue());
-			listener.attributeValueChanged(node, n.getAttribute(attribute.getName()), attribute.getValue(), oldValue);
+			if(!ObjectUtils.equals(oldValue, attribute.getValue())){
+				n.setAttributeValue(attribute.getName(), attribute.getValue());
+				listener.attributeValueChanged(node, n.getAttribute(attribute.getName()), attribute.getValue(), oldValue);
+			}
 		}
 	}
 
@@ -108,8 +124,10 @@ public class MemoryConfigManager implements TreeConfigManager,TreeConfigListenab
 	public void saveNodeValue(TreeConfigPath path, Serializable value) {
 		TreeConfigNode n = getNodeByPath(path, true);
 		Serializable oldValue = n.getValue();
-		n.setValue(value);
-		listener.nodeValueChanged(n, n.getValue(), oldValue);
+		if(!ObjectUtils.equals(oldValue, value)){
+			n.setValue(value);
+			listener.nodeValueChanged(n, n.getValue(), oldValue);
+		}
 	}
 
 	@Override
