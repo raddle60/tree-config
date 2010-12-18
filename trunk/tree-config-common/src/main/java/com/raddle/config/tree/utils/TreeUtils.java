@@ -6,6 +6,7 @@ package com.raddle.config.tree.utils;
 import java.util.List;
 
 import org.apache.commons.lang.ObjectUtils;
+import org.omg.CORBA.BooleanHolder;
 
 import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
@@ -31,6 +32,11 @@ public class TreeUtils {
 		return root;
 	}
 	
+	/**
+	 * 将节点存入root节点，按层次结构
+	 * @param root
+	 * @param node
+	 */
 	private static void saveNode(DefaultConfigNode root ,TreeConfigNode node) {
 		DefaultConfigNode current = null;
 		DefaultConfigNode parent = root;
@@ -56,6 +62,12 @@ public class TreeUtils {
 		}
 	}
 	
+	/**
+	 * path1和path2是否相等
+	 * @param path1
+	 * @param path2
+	 * @return
+	 */
 	public static boolean isPathEquals(TreeConfigPath path1, TreeConfigPath path2) {
 		String[] pathArray1 = path1.getPath();
 		String[] pathArray2 = path2.getPath();
@@ -70,6 +82,12 @@ public class TreeUtils {
 		return true;
 	}
 	
+	/**
+	 * path2是否和path1相等或是path1的子孙节点
+	 * @param path1
+	 * @param path2
+	 * @return
+	 */
 	public static boolean isEqualOrDescendant(TreeConfigPath path1, TreeConfigPath path2) {
 		String[] pathArray1 = path1.getPath();
 		String[] pathArray2 = path2.getPath();
@@ -84,7 +102,14 @@ public class TreeUtils {
 		return true;
 	}
 	
-	public static TreeConfigNode getToUpdateNode(TreeConfigNode newNode, TreeConfigNode oldNode, boolean updateNodeValue) {
+	/**
+	 * 比较节点值，返回节点需要更新的值
+	 * @param newNode 节点的新值
+	 * @param oldNode 节点的原值
+	 * @param updateNodeValue 是否需要更新节点的值，传入是否更新，传出比较结果，如果节点值一样，传出false
+	 * @return 返回需要更新的值，如果不需要更新返回null
+	 */
+	public static TreeConfigNode getToUpdateNode(TreeConfigNode newNode, TreeConfigNode oldNode, BooleanHolder updateNodeValue) {
 		DefaultConfigNode toUpdateNode = new DefaultConfigNode();
 		toUpdateNode.setNodePath(newNode.getNodePath());
 		toUpdateNode.setValue(newNode.getValue());
@@ -95,9 +120,11 @@ public class TreeUtils {
 			return toUpdateNode;
 		} else {
 			boolean hasChange = false;
-			if (updateNodeValue) {
+			if (updateNodeValue.value) {
 				if (!ObjectUtils.equals(newNode.getValue(), oldNode.getValue())) {
 					hasChange = true;
+				} else {
+					updateNodeValue.value = false;
 				}
 			}
 			for (TreeConfigAttribute attribute : newNode.getAttributes()) {

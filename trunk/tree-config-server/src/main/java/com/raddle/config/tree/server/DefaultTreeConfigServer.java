@@ -32,6 +32,7 @@ import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.ProtocolCodecFilter;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
+import org.omg.CORBA.BooleanHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +45,6 @@ import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.api.TreeConfigPath;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.remote.SyncCommandSender;
-import com.raddle.config.tree.remote.exception.RemoteExecuteException;
 import com.raddle.config.tree.remote.utils.IpUtils;
 import com.raddle.config.tree.remote.utils.RemoteUtils;
 import com.raddle.config.tree.utils.InvokeUtils;
@@ -118,10 +118,11 @@ public class DefaultTreeConfigServer {
 								// 可能节点很多，需要检查是否有变化，客户端在断开重连时，会重发一遍，这时就不应该通知
 								List<TreeConfigNode> nodes = (List<TreeConfigNode>) methodInvoke.getArgs()[0];
 								Boolean updateNodeValue = (Boolean) methodInvoke.getArgs()[1];
+								BooleanHolder updateNodeValueHolder = new BooleanHolder(updateNodeValue);
 								List<TreeConfigNode> toUpdateNodes = new ArrayList<TreeConfigNode>();
 								for (Iterator<TreeConfigNode> iterator = nodes.iterator(); iterator.hasNext();) {
 									TreeConfigNode newNode = (TreeConfigNode) iterator.next();
-									TreeConfigNode toUpdateNode = TreeUtils.getToUpdateNode(newNode, localManager.getNode(newNode.getNodePath()), updateNodeValue);
+									TreeConfigNode toUpdateNode = TreeUtils.getToUpdateNode(newNode, localManager.getNode(newNode.getNodePath()), updateNodeValueHolder);
 									if (toUpdateNode != null) {
 										toUpdateNodes.add(toUpdateNode);
 									}
@@ -135,9 +136,11 @@ public class DefaultTreeConfigServer {
 							} else if ("saveNode".equals(methodInvoke.getMethod())) {
 								TreeConfigNode newNode = (TreeConfigNode) methodInvoke.getArgs()[0];
 								Boolean updateNodeValue = (Boolean) methodInvoke.getArgs()[1];
-								TreeConfigNode toUpdateNode = TreeUtils.getToUpdateNode(newNode, localManager.getNode(newNode.getNodePath()), updateNodeValue);
+								BooleanHolder updateNodeValueHolder = new BooleanHolder(updateNodeValue);
+								TreeConfigNode toUpdateNode = TreeUtils.getToUpdateNode(newNode, localManager.getNode(newNode.getNodePath()), updateNodeValueHolder);
 								if (toUpdateNode != null) {
 									methodInvoke.getArgs()[0] = toUpdateNode;
+									methodInvoke.getArgs()[1] = updateNodeValueHolder.value;
 								} else {
 									return null;
 								}
