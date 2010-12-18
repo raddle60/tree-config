@@ -4,6 +4,7 @@
 package com.raddle.config.tree.server;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -40,6 +41,7 @@ import com.raddle.config.tree.DefaultConfigNode;
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.DefaultNodeSelector;
 import com.raddle.config.tree.DefaultUpdateNode;
+import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigManager;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.api.TreeConfigPath;
@@ -142,6 +144,25 @@ public class DefaultTreeConfigServer {
 									methodInvoke.getArgs()[0] = toUpdateNode;
 									methodInvoke.getArgs()[1] = updateNodeValueHolder.value;
 								} else {
+									return null;
+								}
+							} else if ("saveNodeValue".equals(methodInvoke.getMethod())) {
+								TreeConfigPath path = (TreeConfigPath) methodInvoke.getArgs()[0];
+								Serializable value = (Serializable) methodInvoke.getArgs()[1];
+								if (ObjectUtils.equals(value, localManager.getNodeValue(path))) {
+									return null;
+								}
+							} else if ("saveAttribute".equals(methodInvoke.getMethod())) {
+								TreeConfigPath path = (TreeConfigPath) methodInvoke.getArgs()[0];
+								TreeConfigAttribute attribute = (TreeConfigAttribute) methodInvoke.getArgs()[1];
+								if (ObjectUtils.equals(attribute.getValue(), localManager.getAttributeValue(path, attribute.getName()))) {
+									return null;
+								}
+							} else if ("saveAttributeValue".equals(methodInvoke.getMethod())) {
+								TreeConfigPath path = (TreeConfigPath) methodInvoke.getArgs()[0];
+								String name = (String) methodInvoke.getArgs()[1];
+								Serializable value = (Serializable) methodInvoke.getArgs()[2];
+								if (ObjectUtils.equals(value, localManager.getAttributeValue(path, name))) {
 									return null;
 								}
 							}
