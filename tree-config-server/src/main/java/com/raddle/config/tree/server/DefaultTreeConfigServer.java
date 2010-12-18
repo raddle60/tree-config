@@ -110,18 +110,18 @@ public class DefaultTreeConfigServer {
 
 			@Override
 			@SuppressWarnings("unchecked")
-			protected Object invokeMethod(final InvokeMethod methodInvoke) throws Exception {
-				logger.debug("invoke received , target:{} , method {}" , methodInvoke.getTarget().getClass(), methodInvoke.getMethod());
+			protected Object invokeMethod(final InvokeMethod invokeMethod) throws Exception {
+				logger.debug("invoke received , target:{} , method {}" , invokeMethod.getTarget().getClass(), invokeMethod.getMethod());
 				Object result = null;
-				if ("treeConfigManager".equals(methodInvoke.getTargetId())) {
-					if (updateMethodSet.contains(methodInvoke.getMethod())) {
+				if ("treeConfigManager".equals(invokeMethod.getTargetId())) {
+					if (updateMethodSet.contains(invokeMethod.getMethod())) {
 						synchronized (CommandContext.getIoSession()) {
 							// 更新操作需要同步，保证执行顺序,先到先执行
 							// 对于同一个client发过来的，能保证是按调用顺序执行
-							if ("saveNodes".equals(methodInvoke.getMethod())) {
-								// 可能节点很多，需要检查是否有变化，客户端在断开重连时，会重发一遍，这时就不应该通知
-								List<TreeConfigNode> nodes = (List<TreeConfigNode>) methodInvoke.getArgs()[0];
-								Boolean updateNodeValue = (Boolean) methodInvoke.getArgs()[1];
+							// 可能节点很多，需要检查是否有变化，客户端在断开重连时，会重发一遍，这时就不应该通知
+							if ("saveNodes".equals(invokeMethod.getMethod())) {
+								List<TreeConfigNode> nodes = (List<TreeConfigNode>) invokeMethod.getArgs()[0];
+								Boolean updateNodeValue = (Boolean) invokeMethod.getArgs()[1];
 								BooleanHolder updateNodeValueHolder = new BooleanHolder(updateNodeValue);
 								List<TreeConfigNode> toUpdateNodes = new ArrayList<TreeConfigNode>();
 								for (Iterator<TreeConfigNode> iterator = nodes.iterator(); iterator.hasNext();) {
@@ -135,52 +135,84 @@ public class DefaultTreeConfigServer {
 									// 沒有变化不用执行后续操作
 									return null;
 								} else {
-									methodInvoke.getArgs()[0] = toUpdateNodes;
+									invokeMethod.getArgs()[0] = toUpdateNodes;
 								}
-							} else if ("saveNode".equals(methodInvoke.getMethod())) {
-								TreeConfigNode newNode = (TreeConfigNode) methodInvoke.getArgs()[0];
-								Boolean updateNodeValue = (Boolean) methodInvoke.getArgs()[1];
+							} else if ("saveNode".equals(invokeMethod.getMethod())) {
+								TreeConfigNode newNode = (TreeConfigNode) invokeMethod.getArgs()[0];
+								Boolean updateNodeValue = (Boolean) invokeMethod.getArgs()[1];
 								BooleanHolder updateNodeValueHolder = new BooleanHolder(updateNodeValue);
 								TreeConfigNode toUpdateNode = TreeUtils.getToUpdateNode(newNode, localManager.getNode(newNode.getNodePath()), updateNodeValueHolder);
 								if (toUpdateNode != null) {
-									methodInvoke.getArgs()[0] = toUpdateNode;
-									methodInvoke.getArgs()[1] = updateNodeValueHolder.value;
+									invokeMethod.getArgs()[0] = toUpdateNode;
+									invokeMethod.getArgs()[1] = updateNodeValueHolder.value;
 								} else {
 									return null;
 								}
-							} else if ("saveNodeValue".equals(methodInvoke.getMethod())) {
-								TreeConfigPath path = (TreeConfigPath) methodInvoke.getArgs()[0];
-								Serializable value = (Serializable) methodInvoke.getArgs()[1];
+							} else if ("saveNodeValue".equals(invokeMethod.getMethod())) {
+								TreeConfigPath path = (TreeConfigPath) invokeMethod.getArgs()[0];
+								Serializable value = (Serializable) invokeMethod.getArgs()[1];
 								if (ObjectUtils.equals(value, localManager.getNodeValue(path))) {
 									return null;
 								}
-							} else if ("saveAttribute".equals(methodInvoke.getMethod())) {
-								TreeConfigPath path = (TreeConfigPath) methodInvoke.getArgs()[0];
-								TreeConfigAttribute attribute = (TreeConfigAttribute) methodInvoke.getArgs()[1];
+							} else if ("saveAttribute".equals(invokeMethod.getMethod())) {
+								TreeConfigPath path = (TreeConfigPath) invokeMethod.getArgs()[0];
+								TreeConfigAttribute attribute = (TreeConfigAttribute) invokeMethod.getArgs()[1];
 								if (ObjectUtils.equals(attribute.getValue(), localManager.getAttributeValue(path, attribute.getName()))) {
 									return null;
 								}
-							} else if ("saveAttributeValue".equals(methodInvoke.getMethod())) {
-								TreeConfigPath path = (TreeConfigPath) methodInvoke.getArgs()[0];
-								String name = (String) methodInvoke.getArgs()[1];
-								Serializable value = (Serializable) methodInvoke.getArgs()[2];
+							} else if ("saveAttributeValue".equals(invokeMethod.getMethod())) {
+								TreeConfigPath path = (TreeConfigPath) invokeMethod.getArgs()[0];
+								String name = (String) invokeMethod.getArgs()[1];
+								Serializable value = (Serializable) invokeMethod.getArgs()[2];
 								if (ObjectUtils.equals(value, localManager.getAttributeValue(path, name))) {
+									return null;
+								}
+							} else if ("removeAttributes".equals(invokeMethod.getMethod())) {
+								TreeConfigPath path = (TreeConfigPath) invokeMethod.getArgs()[0];
+								String[] names = (String[]) invokeMethod.getArgs()[1];
+								List<String> existNames = new ArrayList<String>();
+								for (String name : names) {
+									if (localManager.isAttributesExist(path, name)) {
+										existNames.add(name);
+									}
+								}
+								if (existNames.size() == 0) {
+									return null;
+								} else {
+									invokeMethod.getArgs()[1] = (String[]) existNames.toArray(new String[existNames.size()]);
+								}
+
+							} else if ("removeNode".equals(invokeMethod.getMethod())) {
+								TreeConfigPath path = (TreeConfigPath) invokeMethod.getArgs()[0];
+								if (!localManager.isNodeExist(path)) {
+									return null;
+								}
+							} else if ("removeNodes".equals(invokeMethod.getMethod())) {
+								List<TreeConfigPath> paths = (List<TreeConfigPath>) invokeMethod.getArgs()[0];
+								Iterator<TreeConfigPath> iterator = paths.iterator();
+								while (iterator.hasNext()) {
+									TreeConfigPath path = iterator.next();
+									if (!localManager.isNodeExist(path)) {
+										iterator.remove();
+									}
+								}
+								if (paths.size() == 0) {
 									return null;
 								}
 							}
 							// 本地的执行相对较快，直接执行
-							result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
+							result = InvokeUtils.invokeMethod(invokeMethod.getTarget(), invokeMethod.getMethod(), invokeMethod.getArgs());
 							// 增加通知任务
-							addNotifyTask(CommandContext.getIoSession(), methodInvoke.getMethod(), methodInvoke.getArgs());
+							addNotifyTask(CommandContext.getIoSession(), invokeMethod.getMethod(), invokeMethod.getArgs());
 						}
 					} else {
 						// 读操作直接执行
-						result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
+						result = InvokeUtils.invokeMethod(invokeMethod.getTarget(), invokeMethod.getMethod(), invokeMethod.getArgs());
 					}
 				} else {
-					result = InvokeUtils.invokeMethod(methodInvoke.getTarget(), methodInvoke.getMethod(), methodInvoke.getArgs());
+					result = InvokeUtils.invokeMethod(invokeMethod.getTarget(), invokeMethod.getMethod(), invokeMethod.getArgs());
 				}
-				logger.debug("invoke returned , target:{} , method {} , return {}" , new Object[]{methodInvoke.getTarget().getClass(), methodInvoke.getMethod(),result == null?"null":"not null"});
+				logger.debug("invoke returned , target:{} , method {} , return {}" , new Object[]{invokeMethod.getTarget().getClass(), invokeMethod.getMethod(),result == null?"null":"not null"});
 				return result;
 			}
 
