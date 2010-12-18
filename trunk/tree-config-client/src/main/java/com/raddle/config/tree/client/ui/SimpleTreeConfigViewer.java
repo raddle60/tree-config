@@ -3,15 +3,19 @@
  */
 package com.raddle.config.tree.client.ui;
 
+import java.awt.Rectangle;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JButton;
 import javax.swing.JDesktopPane;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
@@ -20,8 +24,6 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
-
-import org.apache.commons.lang.ObjectUtils;
 
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
@@ -32,10 +34,6 @@ import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.ui.ConsoleUtils;
 import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.config.tree.utils.TreeUtils;
-import javax.swing.JLabel;
-import java.awt.Rectangle;
-import javax.swing.JTextField;
-import javax.swing.JButton;
 
 /**
  * @author xurong
@@ -337,11 +335,9 @@ public class SimpleTreeConfigViewer {
 									@Override
 									public void run() {
 										prepareNode(root, node);
-										if (!ObjectUtils.equals(newValue, oldValue)) {
-											TreeConfigNode configNode = getSelectedConfigNode();
-											if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
-												nodeSelected();
-											}
+										TreeConfigNode configNode = getSelectedConfigNode();
+										if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
+											nodeSelected();
 										}
 									}
 								});
@@ -406,11 +402,9 @@ public class SimpleTreeConfigViewer {
 									@Override
 									public void run() {
 										prepareNode(root, node);
-										if (!ObjectUtils.equals(newValue, oldValue)) {
-											TreeConfigNode configNode = getSelectedConfigNode();
-											if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
-												nodeSelected();
-											}
+										TreeConfigNode configNode = getSelectedConfigNode();
+										if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
+											nodeSelected();
 										}
 									}
 								});
