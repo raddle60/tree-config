@@ -326,6 +326,7 @@ public class DefaultTreeConfigServer {
 		serverConfigNode.setAttributeValue("IP地址", getLocalHostIps());
 		serverConfigNode.setAttributeValue("监听端口号", port);
 		serverConfigNode.setAttributeValue("读超时时间(秒)", readerIdleSeconds);
+		serverConfigNode.setAttributeValue("Ping客户端间隔(秒)", pingSeconds);
 		serverConfigNode.setAttributeValue("远程调用超时时间(秒)", invokeTimeoutSeconds);
 		serverConfigNode.setAttributeValue("本地配置类", localManager.getClass().getName());
 		serverConfigNode.setAttributeValue("最大本地任务线程", maxSendThreads);
