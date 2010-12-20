@@ -25,15 +25,19 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
+import org.apache.mina.core.session.IoSession;
+
 import com.raddle.config.tree.DefaultConfigPath;
 import com.raddle.config.tree.api.TreeConfigAttribute;
 import com.raddle.config.tree.api.TreeConfigListener;
 import com.raddle.config.tree.api.TreeConfigNode;
 import com.raddle.config.tree.client.impl.DefaultTreeConfigClient;
+import com.raddle.config.tree.client.impl.TreeConfigClientListener;
 import com.raddle.config.tree.local.MemoryConfigManager;
 import com.raddle.config.tree.ui.ConsoleUtils;
 import com.raddle.config.tree.utils.ReflectToStringBuilder;
 import com.raddle.config.tree.utils.TreeUtils;
+import com.raddle.nio.mina.cmd.invoke.InvokeMethod;
 
 /**
  * @author xurong
@@ -322,9 +326,6 @@ public class SimpleTreeConfigViewer {
 					ipTxt.setEnabled(false);
 					portTxt.setEnabled(false);
 					try {
-						final DefaultMutableTreeNode root = new DefaultMutableTreeNode("ROOT");
-						DefaultTreeModel treeModel = new DefaultTreeModel(root);
-						getJTree().setModel(treeModel);
 						client = new DefaultTreeConfigClient(ipTxt.getText(), Integer.parseInt(portTxt.getText()));
 						client.setLocalManager(manager);
 						manager.setTreeConfigListener(new TreeConfigListener() {
@@ -334,7 +335,7 @@ public class SimpleTreeConfigViewer {
 								SwingUtilities.invokeLater(new Runnable() {
 									@Override
 									public void run() {
-										prepareNode(root, node);
+										prepareNode((DefaultMutableTreeNode)getJTree().getModel().getRoot(), node);
 										TreeConfigNode configNode = getSelectedConfigNode();
 										if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
 											nodeSelected();
@@ -374,7 +375,7 @@ public class SimpleTreeConfigViewer {
 								SwingUtilities.invokeLater(new Runnable() {
 									@Override
 									public void run() {
-										DefaultMutableTreeNode toRemove = root;
+										DefaultMutableTreeNode toRemove = (DefaultMutableTreeNode)getJTree().getModel().getRoot();
 										for (int i = 0; i < removedNode.getNodePath().getPath().length; i++) {
 											String path = removedNode.getNodePath().getPath()[i];
 											boolean exist = false;
@@ -401,7 +402,7 @@ public class SimpleTreeConfigViewer {
 								SwingUtilities.invokeLater(new Runnable() {
 									@Override
 									public void run() {
-										prepareNode(root, node);
+										prepareNode((DefaultMutableTreeNode)getJTree().getModel().getRoot(), node);
 										TreeConfigNode configNode = getSelectedConfigNode();
 										if (configNode != null && TreeUtils.isPathEquals(node.getNodePath(), configNode.getNodePath())) {
 											nodeSelected();
@@ -423,6 +424,18 @@ public class SimpleTreeConfigViewer {
 								});
 							}
 							
+						});
+						client.setListener(new TreeConfigClientListener() {
+							
+							@Override
+							public void sessionConnected(IoSession session) {
+								getJTree().setModel(new DefaultTreeModel(new DefaultMutableTreeNode("ROOT")));
+							}
+							
+							@Override
+							public void commandReceived(InvokeMethod methodInvoke) {
+								
+							}
 						});
 						// 获取全部节点
 						client.bindInitialGetNodes(null, true);
